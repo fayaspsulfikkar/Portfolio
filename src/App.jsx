@@ -680,32 +680,32 @@ export default function App() {
             <div className="relative grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-2">
               {[
                 {
-                  title: "interactive-universe",
-                  desc: "Interactive JavaScript concept project focused on motion, response, and exploratory interface ideas.",
+                  title: "NASA-like 3D Solar System",
+                  desc: "A space-style 3D solar system inspired by NASA visuals, with smooth motion and interactive planets.",
                   stack: "JavaScript",
                   year: "Public",
                   url: "https://interactive-universe-five.vercel.app/",
                 },
                 {
-                  title: "money-pro",
-                  desc: "Structured HTML project iteration with cleaner layouts and practical cash-flow style modules.",
+                  title: "Simple Money Planner",
+                  desc: "A clean budgeting page to plan income and expenses with an easy-to-understand layout.",
                   stack: "HTML",
                   year: "Public",
                   url: "https://fayaspsulfikkar.github.io/money-pro/",
                 },
                 {
-                  title: "money-pulse",
-                  desc: "JavaScript-based project exploring money tracking logic and lightweight interactive behavior.",
+                  title: "Daily Expense Tracker",
+                  desc: "A lightweight tracker to record daily spending and quickly check your money flow.",
                   stack: "JavaScript",
                   year: "Public",
                   url: "https://money-pulse-bay.vercel.app/",
                 },
                 {
-                  title: "self-log",
-                  desc: "Personal operating log documenting phases of failure, adaptation, and reconstruction over time.",
+                  title: "Personal System Log",
+                  desc: "A timeline of my real startup journey, including failures, lessons, and rebuild phases.",
                   stack: "HTML",
                   year: "Public",
-                  url: "https://github.com/fayaspsulfikkar/self-log",
+                  url: "https://fayaspsulfikkar.github.io/self-log/",
                 },
               ].map((project) => (
                 <article
@@ -856,7 +856,7 @@ export default function App() {
                 rel="noreferrer"
                 className="transition-colors hover:text-slate-900"
               >
-                SELF-LOG
+                SYSTEM-LOG
               </a>
             </div>
           </section>

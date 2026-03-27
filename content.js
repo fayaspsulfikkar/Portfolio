@@ -96,7 +96,7 @@ export const sectionsContent = {
         Open to meaningful conversations on technology, startup systems, and long-term collaboration.
       </p>
       <div class="contact-links">
-        <a href="https://fayaspsulfikkar.github.io/self-log/" target="_blank" rel="noreferrer">Self Log</a>
+        <a href="https://fayaspsulfikkar.github.io/self-log/" target="_blank" rel="noreferrer">System Log</a>
         <a href="https://in.linkedin.com/in/fayas-p-sulfikkar-28602520a" target="_blank" rel="noreferrer">LinkedIn</a>
         <a href="mailto:fayas@system">Email</a>
       </div>
