@@ -40,6 +40,13 @@ export const sectionsContent = {
         </p>
       </article>
       <article class="glass-card">
+        <h3>Cerebrum App</h3>
+        <p>
+          Advanced web platform analyzing human cognitive responses to video using Meta's TRIBE v2 multimodal brain encoding AI. Predicts fMRI-like activity from standard .mp4 files.
+        </p>
+        <a href="https://github.com/fayaspsulfikkar/cerebrum-app" target="_blank" rel="noreferrer" style="text-decoration: underline; font-size: 0.9em; opacity: 0.8; margin-top: 0.5rem; display: inline-block;">View Repository</a>
+      </article>
+      <article class="glass-card">
         <h3>Upcoming AI / ML Builds</h3>
         <p class="placeholder">
           New project case studies will appear here as focused startup experiments move from learning into deployment.

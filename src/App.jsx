@@ -680,6 +680,13 @@ export default function App() {
             <div className="relative grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-2">
               {[
                 {
+                  title: "Cerebrum App",
+                  desc: "Advanced web platform analyzing human cognitive responses to video using Meta's TRIBE v2 AI.",
+                  stack: "AI / Web",
+                  year: "Public",
+                  url: "https://github.com/fayaspsulfikkar/cerebrum-app",
+                },
+                {
                   title: "NASA-like 3D Solar System",
                   desc: "A space-style 3D solar system inspired by NASA visuals, with smooth motion and interactive planets.",
                   stack: "JavaScript",
