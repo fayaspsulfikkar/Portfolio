@@ -5,6 +5,7 @@ import {
   ArrowUp,
   ArrowLeft,
 } from "lucide-react";
+import GitHubProfile from "./GitHubProfile";
 
 const TESSERACT_VERTICES = Array.from({ length: 16 }, (_, index) => [
   index & 1 ? 1 : -1,
@@ -615,6 +616,10 @@ export default function App() {
               <div className="flex h-[280px] flex-1 items-center justify-center sm:h-[340px] lg:h-[420px]">
                 <TesseractProjection />
               </div>
+            </div>
+
+            <div className="mt-4 sm:mt-6 md:w-[80vw] lg:w-[60vw] w-[90vw] block z-10 relative left-1/2 -translate-x-1/2">
+              <GitHubProfile />
             </div>
 
             <button

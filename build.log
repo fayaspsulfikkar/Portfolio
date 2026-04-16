@@ -1,0 +1,27 @@
+
+> fayas-portfolio@1.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 1988 modules transformed.
+Γ£ù Build failed in 5.46s
+error during build:
+src/GitHubProfile.jsx (2:7): "default" is not exported by "node_modules/react-github-calendar/build/index.js", imported by "src/GitHubProfile.jsx".
+file: D:/FayasDontOpen/portfolio/src/GitHubProfile.jsx:2:7
+
+1: import React from 'react';
+2: import GitHubCalendar from 'react-github-calendar';
+          ^
+3: import { Github, Download, User } from 'lucide-react';
+
+    at getRollupError (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/parseAst.js:406:41)
+    at error (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/parseAst.js:402:42)
+    at Module.error (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/node-entry.js:17065:16)
+    at Module.traceVariable (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/node-entry.js:17477:29)
+    at ModuleScope.findVariable (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/node-entry.js:15090:39)
+    at ReturnValueScope.findVariable (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/node-entry.js:5676:38)
+    at FunctionBodyScope.findVariable (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/node-entry.js:5676:38)
+    at Identifier.bind (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/node-entry.js:5450:40)
+    at CallExpression.bind (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/node-entry.js:2828:28)
+    at CallExpression.bind (file:///D:/FayasDontOpen/portfolio/node_modules/rollup/dist/es/shared/node-entry.js:12199:15)
