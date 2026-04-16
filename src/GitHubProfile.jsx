@@ -57,7 +57,7 @@ const GitHubProfile = () => {
             hideTotalCount={false}
             hideColorLegend={true}
             theme={{
-              light: ['#d8eab1', '#add975', '#add975', '#82c040', '#6aa42e']
+              light: ['#d1f1ceff', '#a4e295ff', '#75d97dff', '#40c051ff', '#07a31cff']
             }}
           />
         </div>

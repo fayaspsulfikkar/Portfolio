@@ -690,6 +690,10 @@ export default function App() {
                   stack: "AI / Web",
                   year: "Public",
                   url: "https://github.com/fayaspsulfikkar/cerebrum-app",
+                  actions: [
+                    { label: "GitHub", url: "https://github.com/fayaspsulfikkar/cerebrum-app" },
+                    { label: "Paper", url: "https://fayaspsulfikkar.github.io/crbrm_rsrch_ppr/" }
+                  ]
                 },
                 {
                   title: "NASA-like 3D Solar System",
@@ -722,35 +726,80 @@ export default function App() {
               ].map((project) => (
                 <article
                   key={project.title}
-                  className="group relative h-[198px] overflow-hidden rounded-xl border border-slate-200/70 bg-white/28 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/40"
+                  className={`group relative h-[198px] overflow-hidden rounded-xl border backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 ${
+                    project.title === "Cerebrum App"
+                      ? "border-blue-400/80 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-500/20 hover:border-blue-400 hover:shadow-[0_0_25px_rgba(59,130,246,0.5)]"
+                      : "border-slate-200/70 bg-white/28 hover:bg-white/40"
+                  }`}
                 >
-                  <a
-                    href={project.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex h-full w-full flex-col p-3 text-left sm:p-3.5"
-                  >
-                    <div className="absolute left-1.5 top-0 h-1 w-8 -translate-y-[1px] rounded-b-md border-x border-b border-slate-300/60 bg-white/40"></div>
+                  <a href={project.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 z-0 cursor-pointer">
+                    <span className="sr-only">Visit {project.title}</span>
+                  </a>
+
+                  <div className="pointer-events-none relative z-10 flex h-full w-full flex-col p-3 text-left sm:p-3.5">
+                    <div className={`absolute left-1.5 top-0 h-1 w-8 -translate-y-[1px] rounded-b-md border-x border-b ${
+                      project.title === "Cerebrum App"
+                        ? "border-blue-400 bg-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.8)]"
+                        : "border-slate-300/60 bg-white/40"
+                    }`}></div>
 
                     <div className="mb-2 flex items-start justify-between gap-2">
-                      <h3 className="flex-1 text-[12px] font-semibold uppercase tracking-[0.07em] leading-tight text-slate-700 sm:text-[13px]">
+                      <h3 className={`flex-1 text-[12px] font-semibold uppercase tracking-[0.07em] leading-tight sm:text-[13px] flex items-center gap-1.5 flex-wrap ${
+                        project.title === "Cerebrum App"
+                          ? "text-blue-800 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                          : "text-slate-700"
+                      }`}>
                         {project.title}
+                        {project.title === "Cerebrum App" && (
+                          <span className="text-[9px] lowercase italic normal-case font-normal text-blue-600/80 tracking-normal drop-shadow-none sm:text-[10px]">
+                            research
+                          </span>
+                        )}
                       </h3>
-                      <span className="shrink-0 rounded-full border border-slate-200 bg-white/50 px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em] text-slate-500 sm:text-[9px]">
+                      <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em] sm:text-[9px] ${
+                        project.title === "Cerebrum App"
+                          ? "border-blue-300/80 bg-blue-100/60 text-blue-700 shadow-[0_0_10px_rgba(59,130,246,0.3)]"
+                          : "border-slate-200 bg-white/50 text-slate-500"
+                      }`}>
                         {project.year}
                       </span>
                     </div>
 
-                    <div className="flex flex-1 flex-col border-t border-slate-200/60 pt-2">
-                      <p className="text-[12px] leading-snug line-clamp-2 text-slate-600 sm:text-[13px]">{project.desc}</p>
-                      <p className="mt-1.5 text-[11px] text-slate-500 line-clamp-1 sm:text-[12px]">
+                    <div className={`flex flex-1 flex-col border-t pt-2 ${
+                      project.title === "Cerebrum App" ? "border-blue-300/50" : "border-slate-200/60"
+                    }`}>
+                      <p className={`text-[12px] leading-snug line-clamp-2 sm:text-[13px] ${
+                        project.title === "Cerebrum App" ? "text-blue-900/80" : "text-slate-600"
+                      }`}>{project.desc}</p>
+                      <p className={`mt-1.5 text-[11px] line-clamp-1 sm:text-[12px] ${
+                        project.title === "Cerebrum App" ? "text-blue-800/70" : "text-slate-500"
+                      }`}>
                         <span className="font-medium">Stack:</span> {project.stack}
                       </p>
-                      <p className="mt-auto flex items-center gap-1 pt-1 text-[10px] italic tracking-[0.14em] text-slate-400 transition-colors group-hover:text-slate-600 sm:text-[11px]">
-                        Visit &gt;
-                      </p>
+                      
+                      {project.actions ? (
+                        <div className="pointer-events-auto mt-auto flex items-center gap-2 pt-1">
+                          {project.actions.map(action => (
+                            <a 
+                              key={action.label} 
+                              href={action.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="flex items-center gap-1 rounded bg-blue-500/20 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.1em] text-blue-700 shadow-[0_0_5px_rgba(59,130,246,0.15)] transition-colors hover:bg-blue-500/30 hover:text-blue-800"
+                            >
+                              {action.label} <ArrowUpRight size={10} strokeWidth={2.5} />
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className={`mt-auto flex items-center gap-1 pt-1 text-[10px] italic tracking-[0.14em] transition-colors sm:text-[11px] ${
+                          project.title === "Cerebrum App" ? "text-blue-600 group-hover:text-blue-800" : "text-slate-400 group-hover:text-slate-600"
+                        }`}>
+                          Visit &gt;
+                        </p>
+                      )}
                     </div>
-                  </a>
+                  </div>
                 </article>
               ))}
             </div>
