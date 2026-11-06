@@ -1,12 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Mail,
   ArrowUpRight,
   ArrowUp,
   ArrowLeft,
+  Github,
+  Linkedin,
+  ExternalLink,
+  ChevronDown,
+  Camera,
+  Box,
 } from "lucide-react";
 import GitHubProfile from "./GitHubProfile";
 
+/* ─────────────────────────────────────────────
+   TESSERACT  (unchanged math, reskinned visuals)
+───────────────────────────────────────────── */
 const TESSERACT_VERTICES = Array.from({ length: 16 }, (_, index) => [
   index & 1 ? 1 : -1,
   index & 2 ? 1 : -1,
@@ -15,43 +24,29 @@ const TESSERACT_VERTICES = Array.from({ length: 16 }, (_, index) => [
 ]);
 
 const TESSERACT_EDGES = [];
-for (let from = 0; from < 16; from += 1) {
-  for (let axis = 0; axis < 4; axis += 1) {
+for (let from = 0; from < 16; from++) {
+  for (let axis = 0; axis < 4; axis++) {
     const to = from ^ (1 << axis);
-    if (from < to) {
-      TESSERACT_EDGES.push([from, to]);
-    }
+    if (from < to) TESSERACT_EDGES.push([from, to]);
   }
 }
 
 function rotatePair(a, b, angle) {
-  const cosine = Math.cos(angle);
-  const sine = Math.sin(angle);
-
-  return [a * cosine - b * sine, a * sine + b * cosine];
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return [a * c - b * s, a * s + b * c];
 }
 
 function projectVertex(vertex, angle) {
   let [x, y, z, w] = vertex;
-
   [x, w] = rotatePair(x, w, angle * 0.92);
   [y, z] = rotatePair(y, z, angle * 0.66);
   [x, z] = rotatePair(x, z, angle * 0.47);
   [y, w] = rotatePair(y, w, angle * 0.38);
   [z, w] = rotatePair(z, w, angle * 0.58);
-
-  const wPerspective = 1 / (2.7 - w * 0.85);
-  const x3 = x * wPerspective;
-  const y3 = y * wPerspective;
-  const z3 = z * wPerspective;
+  const wp = 1 / (2.7 - w * 0.85);
+  const x3 = x * wp, y3 = y * wp, z3 = z * wp;
   const depth = 1 / (3.8 - z3 * 1.35);
-
-  return {
-    x: x3 * depth,
-    y: y3 * depth,
-    z: z3,
-    glow: depth,
-  };
+  return { x: x3 * depth, y: y3 * depth, z: z3, glow: depth };
 }
 
 const TesseractProjection = () => {
@@ -60,90 +55,76 @@ const TesseractProjection = () => {
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
-    let animationFrameId = 0;
-    let previousTime = 0;
-
-    const step = (time) => {
-      if (!previousTime) {
-        previousTime = time;
-      }
-
-      const delta = time - previousTime;
-      previousTime = time;
-      frameRef.current += delta * (isHovered ? 0.00115 : 0.00062);
+    let rafId = 0, prev = 0;
+    const step = (t) => {
+      if (!prev) prev = t;
+      frameRef.current += (t - prev) * (isHovered ? 0.0012 : 0.00062);
+      prev = t;
       setAngle(frameRef.current);
-      animationFrameId = window.requestAnimationFrame(step);
+      rafId = requestAnimationFrame(step);
     };
-
-    animationFrameId = window.requestAnimationFrame(step);
-
-    return () => {
-      window.cancelAnimationFrame(animationFrameId);
-    };
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
   }, [isHovered]);
 
   const projected = useMemo(() => {
-    const scale = 140;
-    return TESSERACT_VERTICES.map((vertex) => {
-      const point = projectVertex(vertex, angle);
-      return {
-        x: point.x * scale,
-        y: point.y * scale,
-        z: point.z,
-        glow: point.glow,
-      };
+    const scale = 130;
+    return TESSERACT_VERTICES.map((v) => {
+      const p = projectVertex(v, angle);
+      return { x: p.x * scale, y: p.y * scale, z: p.z, glow: p.glow };
     });
   }, [angle]);
 
-  const sortedEdges = useMemo(() => {
-    return [...TESSERACT_EDGES].sort((edgeA, edgeB) => {
-      const depthA = (projected[edgeA[0]].z + projected[edgeA[1]].z) / 2;
-      const depthB = (projected[edgeB[0]].z + projected[edgeB[1]].z) / 2;
-      return depthA - depthB;
-    });
-  }, [projected]);
+  const sortedEdges = useMemo(() =>
+    [...TESSERACT_EDGES].sort((a, b) =>
+      (projected[a[0]].z + projected[a[1]].z) / 2 -
+      (projected[b[0]].z + projected[b[1]].z) / 2
+    ), [projected]);
 
   return (
     <div
-      className="group relative h-[280px] w-[280px] sm:h-[340px] sm:w-[340px] lg:h-[400px] lg:w-[400px]"
+      className="relative"
+      style={{ width: 320, height: 320 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="absolute inset-8 rounded-full bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.55),transparent_62%)] opacity-70 blur-2xl"></div>
+      {/* Red ambient glow behind */}
+      <div
+        style={{
+          position: "absolute",
+          inset: "20%",
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(192,57,43,0.18) 0%, transparent 70%)",
+          filter: "blur(24px)",
+          animation: "redGlow 3s ease-in-out infinite",
+        }}
+      />
 
-      <svg viewBox="-160 -160 320 320" className="absolute inset-0 h-full w-full overflow-visible">
+      <svg viewBox="-160 -160 320 320" style={{ width: "100%", height: "100%", overflow: "visible" }}>
         <defs>
-          <radialGradient id="tesseractCore" cx="50%" cy="46%" r="58%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
-            <stop offset="52%" stopColor="rgba(255,255,255,0.2)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-          </radialGradient>
           <filter id="tesseractGlow" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="3.4" result="blurred" />
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
             <feMerge>
-              <feMergeNode in="blurred" />
+              <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
         </defs>
 
-        <circle cx="0" cy="0" r="200" fill="url(#tesseractCore)" opacity="0.8" />
-
         {sortedEdges.map(([from, to]) => {
-          const start = projected[from];
-          const end = projected[to];
-          const depth = (start.glow + end.glow) / 2;
-          const opacity = 0.26 + depth * 0.72;
-          const width = 1.2 + depth * 2.6;
-
+          const s = projected[from], e = projected[to];
+          const depth = (s.glow + e.glow) / 2;
+          const opacity = 0.2 + depth * 0.8;
+          const width = 0.8 + depth * 2.2;
+          // deeper = more red, shallower = white
+          const r = Math.round(192 * depth + 80 * (1 - depth));
+          const g = Math.round(57 * depth + 80 * (1 - depth));
+          const b = Math.round(43 * depth + 80 * (1 - depth));
           return (
             <line
               key={`${from}-${to}`}
-              x1={start.x}
-              y1={start.y}
-              x2={end.x}
-              y2={end.y}
-              stroke={`rgba(51, 65, 85, ${opacity})`}
+              x1={s.x} y1={s.y} x2={e.x} y2={e.y}
+              stroke={`rgba(${r},${g},${b},${opacity})`}
               strokeWidth={width}
               strokeLinecap="round"
               filter="url(#tesseractGlow)"
@@ -152,848 +133,2180 @@ const TesseractProjection = () => {
         })}
 
         {projected
-          .map((point, index) => ({ ...point, index }))
+          .map((p, i) => ({ ...p, i }))
           .sort((a, b) => a.z - b.z)
-          .map((point) => {
-            const radius = 1.5 + point.glow * 2.8;
-            const opacity = 0.3 + point.glow * 0.8;
-
+          .map(({ x, y, glow, i }) => {
+            const r = 1.2 + glow * 2.5;
+            const opacity = 0.4 + glow * 0.7;
             return (
-              <g key={point.index}>
-                <circle cx={point.x} cy={point.y} r={radius * 2.2} fill={`rgba(255,255,255,${opacity * 0.12})`} />
-                <circle cx={point.x} cy={point.y} r={radius} fill={`rgba(71, 85, 105, ${opacity})`} />
+              <g key={i}>
+                <circle cx={x} cy={y} r={r * 2.4} fill={`rgba(192,57,43,${opacity * 0.15})`} />
+                <circle cx={x} cy={y} r={r} fill={`rgba(220,100,80,${opacity})`} />
               </g>
             );
           })}
       </svg>
-
-
     </div>
   );
 };
 
-const GlassButton = ({ children, icon: Icon, onClick, className = "", ...rest }) => {
-  const hasLabel = Boolean(children);
+/* ─────────────────────────────────────────────
+   HERO VISUAL (3D Interactive Portrait & 4D Tesseract)
+───────────────────────────────────────────── */
+const HeroVisual = ({ activeSection = "home" }) => {
+  const [mode, setMode] = useState("portrait"); // "portrait" | "tesseract"
+  const [isHovered, setIsHovered] = useState(false);
+  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50 });
+  const cardRef = useRef(null);
+
+  const handleMouseMove = (e) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const rotateY = (x - 0.5) * 18;
+    const rotateX = -(y - 0.5) * 18;
+    setTilt({
+      rotateX,
+      rotateY,
+      glareX: x * 100,
+      glareY: y * 100,
+    });
+  };
+
+  const handleMouseEnter = () => setIsHovered(true);
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setTilt({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50 });
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        position: "relative",
+      }}
+      className="reveal-scale items-center"
+    >
+      {/* Mode Switcher */}
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          padding: 4,
+          background: "rgba(17,17,17,0.85)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 999,
+          backdropFilter: "blur(12px)",
+          zIndex: 20,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setMode("portrait")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 14px",
+            borderRadius: 999,
+            border: mode === "portrait" ? "1px solid rgba(192,57,43,0.5)" : "1px solid transparent",
+            background: mode === "portrait" ? "rgba(192,57,43,0.18)" : "transparent",
+            color: mode === "portrait" ? "#f0ece8" : "rgba(240,236,232,0.45)",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            transition: "all 0.25s ease",
+          }}
+        >
+          <Camera size={12} color={mode === "portrait" ? "var(--red)" : "currentColor"} />
+          Portrait
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMode("tesseract")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 14px",
+            borderRadius: 999,
+            border: mode === "tesseract" ? "1px solid rgba(192,57,43,0.5)" : "1px solid transparent",
+            background: mode === "tesseract" ? "rgba(192,57,43,0.18)" : "transparent",
+            color: mode === "tesseract" ? "#f0ece8" : "rgba(240,236,232,0.45)",
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            transition: "all 0.25s ease",
+          }}
+        >
+          <Box size={12} color={mode === "tesseract" ? "var(--red)" : "currentColor"} />
+          4D Tesseract
+        </button>
+      </div>
+
+      {/* Main Visual Display */}
+      {mode === "portrait" ? (
+        <div
+          ref={cardRef}
+          onMouseMove={handleMouseMove}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          style={{
+            position: "relative",
+            width: 300,
+            maxWidth: "88vw",
+            height: 420,
+            perspective: 1000,
+            cursor: "crosshair",
+          }}
+        >
+          {/* 3D Tilted Card Container */}
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              height: "100%",
+              borderRadius: 20,
+              overflow: "hidden",
+              background: "linear-gradient(160deg, #151515 0%, #0c0c0c 100%)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              boxShadow: isHovered
+                ? "0 24px 60px rgba(0,0,0,0.85), 0 0 40px rgba(192,57,43,0.25)"
+                : "0 16px 40px rgba(0,0,0,0.65), 0 0 24px rgba(192,57,43,0.12)",
+              transform: `perspective(1000px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale3d(${
+                isHovered ? 1.02 : 1
+              }, ${isHovered ? 1.02 : 1}, 1)`,
+              transition: isHovered
+                ? "transform 0.08s ease-out, box-shadow 0.3s ease"
+                : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease",
+              transformStyle: "preserve-3d",
+            }}
+          >
+            {/* Background Grid Pattern */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                backgroundImage: `
+                  linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)
+                `,
+                backgroundSize: "24px 24px",
+                pointerEvents: "none",
+                opacity: 0.7,
+              }}
+            />
+
+            {/* Pulsing Crimson Backlight Halo behind head & shoulders */}
+            <div
+              style={{
+                position: "absolute",
+                top: "12%",
+                left: "12%",
+                right: "12%",
+                height: 250,
+                borderRadius: "50%",
+                background: "radial-gradient(circle, rgba(192,57,43,0.6) 0%, rgba(192,57,43,0.2) 48%, transparent 75%)",
+                filter: "blur(32px)",
+                animation: "auraPulse 4s ease-in-out infinite",
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* Tactical Reticle Corners */}
+            <div
+              style={{
+                position: "absolute",
+                top: 10,
+                left: 10,
+                width: 14,
+                height: 14,
+                borderTop: "2px solid var(--red)",
+                borderLeft: "2px solid var(--red)",
+                animation: "reticlePulse 3s ease-in-out infinite",
+                zIndex: 15,
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: 10,
+                right: 10,
+                width: 14,
+                height: 14,
+                borderTop: "2px solid var(--red)",
+                borderRight: "2px solid var(--red)",
+                animation: "reticlePulse 3s ease-in-out infinite",
+                zIndex: 15,
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                bottom: 10,
+                left: 10,
+                width: 14,
+                height: 14,
+                borderBottom: "2px solid var(--red)",
+                borderLeft: "2px solid var(--red)",
+                animation: "reticlePulse 3s ease-in-out infinite",
+                zIndex: 15,
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                bottom: 10,
+                right: 10,
+                width: 14,
+                height: 14,
+                borderBottom: "2px solid var(--red)",
+                borderRight: "2px solid var(--red)",
+                animation: "reticlePulse 3s ease-in-out infinite",
+                zIndex: 15,
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* Top HUD Telemetry */}
+            <div
+              style={{
+                position: "absolute",
+                top: 16,
+                left: 18,
+                right: 18,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                zIndex: 15,
+                pointerEvents: "none",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "#f0ece8",
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "var(--red)",
+                    boxShadow: "0 0 8px var(--red)",
+                    animation: "redGlow 1.8s ease-in-out infinite",
+                  }}
+                />
+                OPERATOR // {activeSection.toUpperCase()}
+              </div>
+
+              <div
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9,
+                  letterSpacing: "0.14em",
+                  color: "rgba(240,236,232,0.35)",
+                }}
+              >
+                FPS.013
+              </div>
+            </div>
+
+            {/* Cutout Portrait Image with 3D Depth */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "center",
+                transform: "translateZ(26px)",
+                pointerEvents: "none",
+              }}
+            >
+              <img
+                src="/fayas.png"
+                alt="Fayas P Sulfikkar"
+                style={{
+                  width: "100%",
+                  height: "94%",
+                  objectFit: "contain",
+                  objectPosition: "bottom center",
+                  filter: isHovered
+                    ? "contrast(1.1) brightness(1.04) drop-shadow(0 14px 28px rgba(0,0,0,0.85))"
+                    : "contrast(1.06) brightness(1.01) drop-shadow(0 10px 20px rgba(0,0,0,0.75))",
+                  maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 74%, rgba(0,0,0,0) 100%)",
+                  WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 74%, rgba(0,0,0,0) 100%)",
+                  transition: "filter 0.3s ease",
+                }}
+              />
+            </div>
+
+            {/* Laser Biometric Scan Beam */}
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                height: 1,
+                background: "linear-gradient(90deg, transparent 0%, rgba(231,76,60,0.95) 50%, transparent 100%)",
+                boxShadow: "0 0 12px 1px rgba(231,76,60,0.85)",
+                animation: "laserScan 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite",
+                pointerEvents: "none",
+                zIndex: 12,
+              }}
+            />
+
+            {/* Interactive Cursor Glare Highlight */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(231,76,60,0.18) 0%, transparent 60%)`,
+                opacity: isHovered ? 1 : 0,
+                transition: "opacity 0.3s ease",
+                pointerEvents: "none",
+                zIndex: 14,
+              }}
+            />
+
+            {/* Bottom HUD Overlay */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 16,
+                left: 16,
+                right: 16,
+                zIndex: 16,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 8,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "rgba(192,57,43,0.85)",
+                    marginBottom: 2,
+                  }}
+                >
+                  EXTRACTED EXP.
+                </div>
+                <div
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#f0ece8",
+                  }}
+                >
+                  Fayas P Sulfikkar
+                </div>
+              </div>
+
+              {/* Miniature 4D Tesseract Shortcut Pill */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMode("tesseract");
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  background: "rgba(192,57,43,0.18)",
+                  border: "1px solid rgba(192,57,43,0.4)",
+                  color: "#f0ece8",
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  backdropFilter: "blur(8px)",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(192,57,43,0.35)";
+                  e.currentTarget.style.borderColor = "var(--red)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(192,57,43,0.18)";
+                  e.currentTarget.style.borderColor = "rgba(192,57,43,0.4)";
+                }}
+                title="Switch to 4D Tesseract projection"
+              >
+                <Box size={10} color="var(--red)" />
+                4D ENGINE
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            position: "relative",
+            width: 300,
+            maxWidth: "88vw",
+            height: 420,
+            borderRadius: 20,
+            background: "linear-gradient(160deg, #151515 0%, #0c0c0c 100%)",
+            border: "1px solid rgba(192,57,43,0.35)",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.8), 0 0 40px rgba(192,57,43,0.15)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+          }}
+        >
+          {/* Tactical Reticle Corners */}
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              left: 10,
+              width: 14,
+              height: 14,
+              borderTop: "2px solid var(--red)",
+              borderLeft: "2px solid var(--red)",
+              zIndex: 15,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              width: 14,
+              height: 14,
+              borderTop: "2px solid var(--red)",
+              borderRight: "2px solid var(--red)",
+              zIndex: 15,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: 10,
+              left: 10,
+              width: 14,
+              height: 14,
+              borderBottom: "2px solid var(--red)",
+              borderLeft: "2px solid var(--red)",
+              zIndex: 15,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: 10,
+              right: 10,
+              width: 14,
+              height: 14,
+              borderBottom: "2px solid var(--red)",
+              borderRight: "2px solid var(--red)",
+              zIndex: 15,
+            }}
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              top: 16,
+              left: 18,
+              right: 18,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              zIndex: 15,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 9,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "var(--red)",
+              }}
+            >
+              4D HYPERCUBE // SIMULATION
+            </div>
+            <button
+              type="button"
+              onClick={() => setMode("portrait")}
+              style={{
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 4,
+                padding: "3px 8px",
+                color: "rgba(240,236,232,0.6)",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 9,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+              }}
+            >
+              ← Photo
+            </button>
+          </div>
+
+          <TesseractProjection />
+
+          <div
+            style={{
+              position: "absolute",
+              bottom: 16,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 9,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "rgba(240,236,232,0.3)",
+            }}
+          >
+            4-AXIS ROTATION · INTERACTIVE DEPTH
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   HOOK: scroll reveal
+───────────────────────────────────────────── */
+function useReveal() {
+  useEffect(() => {
+    const els = document.querySelectorAll(".reveal, .reveal-left, .reveal-scale");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+}
+
+/* ─────────────────────────────────────────────
+   NAV RAIL
+───────────────────────────────────────────── */
+const NAV_ITEMS = [
+  { id: "home", label: "Home", num: "01" },
+  { id: "businesses", label: "Businesses", num: "02" },
+  { id: "portfolio", label: "Portfolio", num: "03" },
+  { id: "skills", label: "Capabilities", num: "04" },
+  { id: "contact", label: "Contact", num: "05" },
+];
+
+const NavRail = ({ active }) => {
+  const scrollTo = (id) =>
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+
+  return (
+    <nav
+      style={{
+        position: "fixed",
+        left: 24,
+        top: "50%",
+        transform: "translateY(-50%)",
+        zIndex: 50,
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        padding: "16px 8px",
+        background: "rgba(17,17,17,0.85)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        borderRadius: 16,
+        backdropFilter: "blur(16px)",
+      }}
+      className="hidden lg:flex"
+    >
+      <div
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 9,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "rgba(192,57,43,0.7)",
+          marginBottom: 8,
+          paddingInline: 8,
+        }}
+      >
+        NAV
+      </div>
+      {NAV_ITEMS.map((item) => {
+        const isActive = active === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => scrollTo(item.id)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 24,
+              padding: "8px 10px",
+              borderRadius: 10,
+              border: isActive ? "1px solid rgba(192,57,43,0.4)" : "1px solid transparent",
+              background: isActive ? "rgba(192,57,43,0.1)" : "transparent",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              minWidth: 140,
+            }}
+            onMouseEnter={(e) => {
+              if (!isActive) {
+                e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                e.currentTarget.style.border = "1px solid rgba(255,255,255,0.07)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.border = "1px solid transparent";
+              }
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: 11,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: isActive ? "#f0ece8" : "rgba(240,236,232,0.4)",
+                fontWeight: isActive ? 500 : 300,
+                transition: "color 0.3s",
+              }}
+            >
+              {item.label}
+            </span>
+            <span
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 9,
+                color: isActive ? "rgba(192,57,43,0.8)" : "rgba(240,236,232,0.2)",
+                transition: "color 0.3s",
+              }}
+            >
+              {item.num}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   SECTION HEADING
+───────────────────────────────────────────── */
+const SectionHeading = ({ index, title, subtitle }) => (
+  <div className="section-divider reveal">
+    <div>
+      <div className="mono-tag" style={{ marginBottom: 8 }}>
+        {index} — {subtitle}
+      </div>
+      <h2
+        className="font-display"
+        style={{
+          fontSize: "clamp(2rem, 3.8vw, 3rem)",
+          fontWeight: 700,
+          lineHeight: 1.1,
+          color: "#f0ece8",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {title}
+      </h2>
+    </div>
+  </div>
+);
+
+/* ─────────────────────────────────────────────
+   RED BUTTON
+───────────────────────────────────────────── */
+const RedButton = ({ children, onClick, href, style = {}, icon: Icon }) => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "12px 24px",
+    background: "var(--red)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 13,
+    fontWeight: 500,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    cursor: "pointer",
+    textDecoration: "none",
+    transition: "all 0.3s ease",
+    position: "relative",
+    overflow: "hidden",
+    ...style,
+  };
+
+  const content = (
+    <>
+      <span style={{ position: "relative", zIndex: 1 }}>{children}</span>
+      {Icon && <Icon size={16} style={{ position: "relative", zIndex: 1 }} />}
+      <span
+        style={{
+          position: "absolute",
+          top: 0,
+          left: "-100%",
+          width: "60%",
+          height: "100%",
+          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)",
+          skewX: "-20deg",
+          animation: "none",
+        }}
+        className="btn-shine"
+      />
+    </>
+  );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        style={base}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "var(--red-bright)";
+          e.currentTarget.style.transform = "translateY(-1px)";
+          e.currentTarget.style.boxShadow = "0 8px 24px rgba(192,57,43,0.4)";
+          const shine = e.currentTarget.querySelector(".btn-shine");
+          if (shine) shine.style.animation = "liquidShine 0.6s ease";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "var(--red)";
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+          const shine = e.currentTarget.querySelector(".btn-shine");
+          if (shine) shine.style.animation = "none";
+        }}
+      >
+        {content}
+      </a>
+    );
+  }
 
   return (
     <button
       onClick={onClick}
-      className={`
-        relative group overflow-hidden rounded-full
-        bg-white/10 backdrop-blur-md
-        border border-white/40
-        shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),_0_8px_20px_rgba(0,0,0,0.08)]
-        transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-        hover:scale-[1.05] hover:shadow-[inset_0_1px_2px_rgba(255,255,255,0.9),_0_12px_24px_rgba(0,0,0,0.12)]
-        active:scale-95 active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.1),_0_4px_10px_rgba(0,0,0,0.1)]
-        flex items-center justify-center ${hasLabel ? "gap-2 px-6 py-3" : "gap-0 p-0"}
-        ${className}
-      `}
-      {...rest}
+      style={base}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "var(--red-bright)";
+        e.currentTarget.style.transform = "translateY(-1px)";
+        e.currentTarget.style.boxShadow = "0 8px 24px rgba(192,57,43,0.4)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "var(--red)";
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
+      }}
     >
-      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-        <div className="absolute top-0 -left-[100%] h-full w-[150%] animate-[liquidShine_1.5s_infinite_ease-in-out] bg-gradient-to-r from-transparent via-white/50 to-transparent"></div>
-      </div>
-
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/30 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div>
-
-      {Icon && (
-        <Icon
-          size={18}
-          className="relative z-10 font-light text-slate-800 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-rotate-6 group-hover:scale-110"
-        />
-      )}
-      {hasLabel && (
-        <span className="relative z-10 font-medium tracking-wide text-slate-800 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-[1.02]">
-          {children}
-        </span>
-      )}
+      {content}
     </button>
   );
 };
 
-const SectionHeading = ({ title, subtitle }) => (
-  <div className="mb-16">
-    <div className="mb-2 text-[10px] uppercase tracking-[0.3em] text-slate-500">{subtitle}</div>
-    <h2 className="text-4xl font-light tracking-tight text-slate-900">{title}</h2>
-    <div className="mt-6 h-px w-12 bg-slate-400"></div>
-  </div>
-);
-
-export default function App() {
-  const [activeSection, setActiveSection] = useState("home");
-  const [time, setTime] = useState(new Date());
-  const [expandedBusiness, setExpandedBusiness] = useState(null);
-  const [hasScrolled, setHasScrolled] = useState(false);
-  const navRailRef = useRef(null);
-  const [navIndicator, setNavIndicator] = useState({ top: 0, height: 0, ready: false });
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const scrollContainer = document.querySelector(".custom-scrollbar");
-    const sections = Array.from(document.querySelectorAll("section"));
-
-    if (!scrollContainer || sections.length === 0) {
-      return;
-    }
-
-    let frame = 0;
-
-    const updateActiveSection = () => {
-      frame = 0;
-      setHasScrolled((previous) => {
-        const next = scrollContainer.scrollTop > 8;
-        return previous === next ? previous : next;
-      });
-
-      const marker = scrollContainer.scrollTop + scrollContainer.clientHeight * 0.35;
-
-      let currentId = sections[0].id;
-      for (const section of sections) {
-        if (section.offsetTop <= marker) {
-          currentId = section.id;
-        } else {
-          break;
-        }
-      }
-
-      setActiveSection((previous) => (previous === currentId ? previous : currentId));
-    };
-
-    const requestUpdate = () => {
-      if (frame) {
-        return;
-      }
-      frame = window.requestAnimationFrame(updateActiveSection);
-    };
-
-    requestUpdate();
-    scrollContainer.addEventListener("scroll", requestUpdate, { passive: true });
-    window.addEventListener("resize", requestUpdate);
-
-    return () => {
-      if (frame) {
-        window.cancelAnimationFrame(frame);
-      }
-      scrollContainer.removeEventListener("scroll", requestUpdate);
-      window.removeEventListener("resize", requestUpdate);
-    };
-  }, []);
-
-  const scrollTo = (id) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+/* ─────────────────────────────────────────────
+   GHOST BUTTON
+───────────────────────────────────────────── */
+const GhostButton = ({ children, onClick, href, icon: Icon, style = {} }) => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "11px 22px",
+    background: "transparent",
+    color: "rgba(240,236,232,0.75)",
+    border: "1px solid rgba(255,255,255,0.14)",
+    borderRadius: 8,
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 13,
+    fontWeight: 400,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    cursor: "pointer",
+    textDecoration: "none",
+    transition: "all 0.3s ease",
+    ...style,
   };
 
-  const navItems = [
-    { id: "home", label: "Home" },
-    { id: "businesses", label: "Businesses" },
-    { id: "portfolio", label: "Portfolio" },
-    { id: "skills", label: "Capabilities" },
-    { id: "contact", label: "Contact" },
-  ];
+  const content = (
+    <>
+      {children}
+      {Icon && <Icon size={15} />}
+    </>
+  );
 
-  useEffect(() => {
-    const updateIndicator = () => {
-      if (!navRailRef.current) {
-        return;
-      }
-
-      const target = navRailRef.current.querySelector(`[data-nav-id="${activeSection}"]`);
-      if (!target) {
-        return;
-      }
-
-      setNavIndicator({ top: target.offsetTop, height: target.offsetHeight, ready: true });
-    };
-
-    updateIndicator();
-    window.addEventListener("resize", updateIndicator);
-
-    return () => {
-      window.removeEventListener("resize", updateIndicator);
-    };
-  }, [activeSection]);
-
-  const businessExperiments = [
-    {
-      name: "Drinking water Blob",
-      period: "2019",
-      state: "failure",
-      detail: "First post-dropout venture with limited network and weak capital structure.",
-      outcome: "Failed quickly; exposed execution gaps.",
-      context: "Entered the market with high conviction but no reliable systems for sourcing, distribution, or cash-flow control.",
-      failureSignal: "Overconfidence before operational understanding.",
-      learning: "Execution rhythm and unit economics matter more than motivation.",
-    },
-    {
-      name: "Restaurant Reservation Platform",
-      period: "2019 - 2020",
-      state: "failure",
-      detail: "Iterated 6+ months on product and fit.",
-      outcome: "Stopped after direction mismatch.",
-      context: "Built and refined for months, but demand and distribution pathways were not validated early enough.",
-      failureSignal: "High effort in a low-signal direction.",
-      learning: "Direction compounds faster than effort when resources are limited.",
-    },
-    {
-      name: "Perfume & Fragrance Shop",
-      period: "2021",
-      state: "failure",
-      detail: "Launched using rebuilt savings; operated around 6 months.",
-      outcome: "Collapsed from seasonality and flood impact.",
-      context: "Funded by daily-wage savings and launched with limited risk buffers.",
-      failureSignal: "External shocks plus fragile operating margin.",
-      learning: "Resilience planning is part of business design, not an afterthought.",
-    },
-    {
-      name: "Amazon FBA Attempt",
-      period: "2021",
-      state: "failure",
-      detail: "Parallel marketplace test for sourcing and listing strategy.",
-      outcome: "Loss from weak selection and execution.",
-      context: "Ran simultaneously with offline operations, reducing focus and decision quality.",
-      failureSignal: "Poor product-market assumptions at listing stage.",
-      learning: "Selection and distribution quality decide outcomes before scaling.",
-    },
-    {
-      name: "Trading System",
-      period: "2022",
-      state: "success",
-      detail: "Rebuilt capital with stricter process and pattern recognition.",
-      outcome: "Reached consistency and funded next moves.",
-      context: "Returned to disciplined routines and rule-based execution after repeated losses.",
-      failureSignal: "Earlier versions were inconsistent and emotionally driven.",
-      learning: "Repeatable systems outperform impulsive decisions.",
-    },
-    {
-      name: "EIGHTY6TH",
-      period: "2023 - 2026",
-      state: "failure",
-      detail: "Bootstrapped brand across production, marketplaces, and own website.",
-      outcome: "Shutdown after capital drain; strong lessons in distribution.",
-      context: "Built product and brand quality iteratively, but lacked sustained marketing runway.",
-      failureSignal: "Traction gap despite prolonged build cycles.",
-      learning: "Distribution design must be solved as early as product design.",
-    },
-  ];
-
-  const selectedBusiness = businessExperiments.find((item) => item.name === expandedBusiness) ?? null;
-
-  const getBusinessTone = (state) => {
-    if (state === "success") {
-      return {
-        cardBorder: "border-green-200/85",
-        cardBg: "bg-green-50/10 hover:bg-green-50/16 shadow-[0_0_0_1px_rgba(187,247,208,0.16),0_0_26px_rgba(74,222,128,0.09)]",
-        heading: "text-green-700/92",
-        tab: "border-green-200/85 bg-green-100/50",
-        badge: "border-green-200/85 bg-green-100/46 text-green-700/90 shadow-[0_0_18px_rgba(74,222,128,0.1)]",
-        line: "border-green-200/70",
-        body: "text-slate-700/90",
-        bodyStrong: "text-slate-800/95",
-        meta: "text-green-700/72",
-        panel: "border-green-200/75 bg-green-50/18 shadow-[0_0_18px_rgba(74,222,128,0.05)]",
-      };
-    }
-
-    return {
-      cardBorder: "border-rose-200/85",
-      cardBg: "bg-rose-50/9 hover:bg-rose-50/14 shadow-[0_0_0_1px_rgba(254,205,211,0.16),0_0_26px_rgba(251,113,133,0.08)]",
-      heading: "text-rose-700/92",
-      tab: "border-rose-200/85 bg-rose-100/48",
-      badge: "border-rose-200/85 bg-rose-100/44 text-rose-700/90 shadow-[0_0_18px_rgba(251,113,133,0.09)]",
-      line: "border-rose-200/70",
-      body: "text-slate-700/90",
-      bodyStrong: "text-slate-800/95",
-      meta: "text-rose-700/72",
-      panel: "border-rose-200/75 bg-rose-50/16 shadow-[0_0_18px_rgba(251,113,133,0.05)]",
-    };
-  };
-
-  const formatDate = (date) => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-    return `${days[date.getDay()]} - ${date.getDate()} ${months[date.getMonth()]}`;
-  };
+  if (href) {
+    return (
+      <a
+        href={href}
+        style={base}
+        target="_blank"
+        rel="noreferrer"
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "rgba(192,57,43,0.5)";
+          e.currentTarget.style.color = "#f0ece8";
+          e.currentTarget.style.background = "rgba(192,57,43,0.06)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
+          e.currentTarget.style.color = "rgba(240,236,232,0.75)";
+          e.currentTarget.style.background = "transparent";
+        }}
+      >
+        {content}
+      </a>
+    );
+  }
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-[#eef3f6] font-sans text-slate-700 selection:bg-slate-200">
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-        .perspective-1000 { perspective: 1000px; }
-        .transform-style-3d { transform-style: preserve-3d; }
-        .translate-z-32 { transform: translateZ(8rem); }
-        .-translate-z-32 { transform: translateZ(-8rem); }
-        .translate-x-32 { transform: translateX(8rem) rotateY(90deg); }
-        .-translate-x-32 { transform: translateX(-8rem) rotateY(-90deg); }
-        .translate-y-32 { transform: translateY(8rem) rotateX(-90deg); }
-        .-translate-y-32 { transform: translateY(-8rem) rotateX(90deg); }
-        @keyframes spin3d {
-          0% { transform: rotateX(0deg) rotateY(0deg); }
-          100% { transform: rotateX(360deg) rotateY(360deg); }
-        }
-        .animate-spin-slow { animation: spin3d 20s linear infinite; }
-        .animate-spin-fast { animation: spin3d 10s linear infinite; }
+    <button
+      onClick={onClick}
+      style={base}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "rgba(192,57,43,0.5)";
+        e.currentTarget.style.color = "#f0ece8";
+        e.currentTarget.style.background = "rgba(192,57,43,0.06)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
+        e.currentTarget.style.color = "rgba(240,236,232,0.75)";
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      {content}
+    </button>
+  );
+};
 
-        @keyframes tesseractSpin {
-          0% { transform: rotateX(-20deg) rotateY(0deg) rotateZ(-10deg); }
-          25% { transform: rotateX(18deg) rotateY(88deg) rotateZ(6deg); }
-          50% { transform: rotateX(-12deg) rotateY(180deg) rotateZ(12deg); }
-          75% { transform: rotateX(20deg) rotateY(270deg) rotateZ(-6deg); }
-          100% { transform: rotateX(-20deg) rotateY(360deg) rotateZ(-10deg); }
-        }
+/* ─────────────────────────────────────────────
+   BUSINESS DATA
+───────────────────────────────────────────── */
+const businessExperiments = [
+  {
+    name: "Drinking Water Blob",
+    period: "2019",
+    state: "failure",
+    detail: "First post-dropout venture with limited network and weak capital structure.",
+    outcome: "Failed quickly; exposed execution gaps.",
+    context: "Entered the market with high conviction but no reliable systems for sourcing, distribution, or cash-flow control.",
+    failureSignal: "Overconfidence before operational understanding.",
+    learning: "Execution rhythm and unit economics matter more than motivation.",
+  },
+  {
+    name: "Restaurant Reservation Platform",
+    period: "2019–2020",
+    state: "failure",
+    detail: "Iterated 6+ months on product and fit.",
+    outcome: "Stopped after direction mismatch.",
+    context: "Built and refined for months, but demand and distribution pathways were not validated early enough.",
+    failureSignal: "High effort in a low-signal direction.",
+    learning: "Direction compounds faster than effort when resources are limited.",
+  },
+  {
+    name: "Perfume & Fragrance Shop",
+    period: "2021",
+    state: "failure",
+    detail: "Launched using rebuilt savings; operated ~6 months.",
+    outcome: "Collapsed from seasonality and flood impact.",
+    context: "Funded by daily-wage savings and launched with limited risk buffers.",
+    failureSignal: "External shocks plus fragile operating margin.",
+    learning: "Resilience planning is part of business design, not an afterthought.",
+  },
+  {
+    name: "Amazon FBA Attempt",
+    period: "2021",
+    state: "failure",
+    detail: "Parallel marketplace test for sourcing and listing strategy.",
+    outcome: "Loss from weak selection and execution.",
+    context: "Ran simultaneously with offline operations, reducing focus and decision quality.",
+    failureSignal: "Poor product-market assumptions at listing stage.",
+    learning: "Selection and distribution quality decide outcomes before scaling.",
+  },
+  {
+    name: "Trading System",
+    period: "2022",
+    state: "success",
+    detail: "Rebuilt capital with stricter process and pattern recognition.",
+    outcome: "Reached consistency and funded next moves.",
+    context: "Returned to disciplined routines and rule-based execution after repeated losses.",
+    failureSignal: "Earlier versions were inconsistent and emotionally driven.",
+    learning: "Repeatable systems outperform impulsive decisions.",
+  },
+  {
+    name: "EIGHTY6TH",
+    period: "2023–2026",
+    state: "failure",
+    detail: "Bootstrapped brand across production, marketplaces, and own website.",
+    outcome: "Shutdown after capital drain; strong lessons in distribution.",
+    context: "Built product and brand quality iteratively, but lacked sustained marketing runway.",
+    failureSignal: "Traction gap despite prolonged build cycles.",
+    learning: "Distribution design must be solved as early as product design.",
+  },
+];
 
-        @keyframes innerPhase {
-          0% { transform: translate3d(34px, -28px, 34px) rotateX(0deg) rotateY(0deg); }
-          50% { transform: translate3d(34px, -28px, 34px) rotateX(180deg) rotateY(180deg); }
-          100% { transform: translate3d(34px, -28px, 34px) rotateX(360deg) rotateY(360deg); }
-        }
-
-        .tesseract-shell { transform-style: preserve-3d; }
-        .tesseract-assembly {
-          animation: tesseractSpin 16s cubic-bezier(0.55, 0.08, 0.33, 0.95) infinite;
-        }
-        .group:hover .tesseract-assembly {
-          animation-duration: 10s;
-        }
-        .tesseract-assembly > div:nth-child(2) {
-          animation: innerPhase 14s linear infinite;
-        }
-
-        @keyframes liquidShine {
-          0% { transform: translateX(-100%) skewX(-15deg); }
-          100% { transform: translateX(100%) skewX(-15deg); }
-        }
-
-        @keyframes windowIn {
-          0% { opacity: 0; transform: translateY(14px) scale(0.96); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        @keyframes blurIn {
-          0% { opacity: 0; }
-          100% { opacity: 1; }
-        }
-
-        @keyframes liquidFlow {
-          0% { transform: translateX(-120%) skewX(-16deg); }
-          100% { transform: translateX(140%) skewX(-16deg); }
-        }
-
-        @keyframes navLiquidSweep {
-          0% { transform: translateX(-140%) skewX(-18deg); }
-          100% { transform: translateX(220%) skewX(-18deg); }
-        }
-
-        @keyframes scrollLiquidFloat {
-          0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.82; }
-          50% { transform: translateX(-50%) translateY(-6px); opacity: 1; }
-        }
-
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.6); }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-      `,
+/* ─────────────────────────────────────────────
+   BUSINESS CARD
+───────────────────────────────────────────── */
+const BusinessCard = ({ business, onClick }) => {
+  const isSuccess = business.state === "success";
+  return (
+    <article
+      className={`dark-card ${isSuccess ? "success-card" : "failure-card"}`}
+      style={{ cursor: "pointer", overflow: "hidden", position: "relative" }}
+      onClick={() => onClick(business.name)}
+    >
+      {/* Top tab */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 16,
+          width: 32,
+          height: 3,
+          background: isSuccess ? "#4ade80" : "var(--red)",
+          borderRadius: "0 0 4px 4px",
+          boxShadow: isSuccess
+            ? "0 0 8px rgba(74,222,128,0.4)"
+            : "0 0 8px rgba(192,57,43,0.4)",
         }}
       />
 
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-white/65 via-white/10 to-transparent"></div>
+      <div style={{ padding: "20px 16px 16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+          <h3
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 12,
+              fontWeight: 600,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: isSuccess ? "#4ade80" : "#e57370",
+              lineHeight: 1.3,
+              flex: 1,
+            }}
+          >
+            {business.name}
+          </h3>
+          <span
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 9,
+              color: isSuccess ? "rgba(74,222,128,0.6)" : "rgba(192,57,43,0.6)",
+              letterSpacing: "0.1em",
+              marginLeft: 8,
+              flexShrink: 0,
+              marginTop: 2,
+            }}
+          >
+            {business.period}
+          </span>
+        </div>
 
-      <div className="pointer-events-none fixed left-0 top-0 z-40 w-full px-3 pt-3 sm:px-6 sm:pt-5">
-        <div
-          className={`mx-auto flex w-full max-w-6xl items-start justify-between px-3 py-2 text-sm font-medium tracking-wide text-slate-700 transition-all duration-400 sm:px-5 ${
-            hasScrolled
-              ? "rounded-2xl border border-white/70 bg-white/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.78),_0_10px_22px_rgba(15,23,42,0.06)] backdrop-blur-xl"
-              : "bg-transparent"
-          }`}
-        >
-          <div className="flex items-center gap-4">
-            <span className="font-semibold">{formatDate(time)}</span>
-          </div>
-          <div className="font-medium tracking-wider">{time.getFullYear()}</div>
+        <div style={{ borderTop: `1px solid ${isSuccess ? "rgba(74,222,128,0.1)" : "rgba(192,57,43,0.1)"}`, paddingTop: 10 }}>
+          <p style={{ fontSize: 12, color: "rgba(240,236,232,0.6)", lineHeight: 1.5, marginBottom: 6 }}>
+            {business.detail}
+          </p>
+          <p style={{ fontSize: 11, color: "rgba(240,236,232,0.4)", lineHeight: 1.4 }}>
+            <span style={{ color: isSuccess ? "rgba(74,222,128,0.7)" : "rgba(192,57,43,0.7)", fontWeight: 500 }}>
+              Outcome:{" "}
+            </span>
+            {business.outcome}
+          </p>
+          <p
+            style={{
+              marginTop: 10,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 9,
+              letterSpacing: "0.12em",
+              color: "rgba(240,236,232,0.25)",
+              textTransform: "uppercase",
+            }}
+          >
+            Click to open →
+          </p>
         </div>
       </div>
+    </article>
+  );
+};
 
-      <div className="fixed left-4 top-1/2 z-40 hidden w-48 -translate-y-1/2 xl:left-8 xl:w-52 lg:block">
-        <div className="rounded-2xl border border-white/70 bg-white/34 p-3 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),_0_8px_20px_rgba(15,23,42,0.05)]">
-          <div className="mb-3 px-2 text-[10px] uppercase tracking-[0.26em] text-slate-500">System Menu</div>
-          <nav ref={navRailRef} className="relative flex flex-col gap-1">
-            <div
-              className={`pointer-events-none absolute left-0 right-0 overflow-hidden rounded-lg border border-white/85 bg-white/78 shadow-[0_6px_16px_rgba(148,163,184,0.28)] transition-[transform,height,opacity] duration-500 ease-out ${
-                navIndicator.ready ? "opacity-100" : "opacity-0"
-              }`}
+/* ─────────────────────────────────────────────
+   BUSINESS MODAL
+───────────────────────────────────────────── */
+const BusinessModal = ({ business, onClose }) => {
+  if (!business) return null;
+  const isSuccess = business.state === "success";
+  const accent = isSuccess ? "#4ade80" : "var(--red)";
+  const accentDim = isSuccess ? "rgba(74,222,128,0.1)" : "rgba(192,57,43,0.1)";
+  const accentBorder = isSuccess ? "rgba(74,222,128,0.25)" : "rgba(192,57,43,0.25)";
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        display: "grid",
+        placeItems: "center",
+        padding: "16px",
+        animation: "blurIn 0.26s ease",
+      }}
+    >
+      {/* Backdrop */}
+      <button
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(12px)",
+          border: "none",
+          cursor: "pointer",
+        }}
+        onClick={onClose}
+        aria-label="Close"
+      />
+
+      <article
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 680,
+          background: "var(--charcoal-2)",
+          border: `1px solid ${accentBorder}`,
+          borderRadius: 16,
+          overflow: "hidden",
+          animation: "windowIn 0.38s cubic-bezier(0.2,0.8,0.22,1)",
+          boxShadow: `0 24px 80px rgba(0,0,0,0.6), 0 0 40px ${isSuccess ? "rgba(74,222,128,0.08)" : "rgba(192,57,43,0.1)"}`,
+        }}
+      >
+        {/* Liquid shine on enter */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: "-100%",
+            width: "50%",
+            height: "100%",
+            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent)",
+            animation: "liquidFlow 1s ease-out",
+            pointerEvents: "none",
+          }}
+        />
+
+        <div style={{ padding: "24px 24px 20px" }}>
+          {/* Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <button
+              onClick={onClose}
               style={{
-                transform: `translateY(${navIndicator.top}px)`,
-                height: `${navIndicator.height}px`,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 14px",
+                background: accentDim,
+                border: `1px solid ${accentBorder}`,
+                borderRadius: 999,
+                color: accent,
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                cursor: "pointer",
               }}
             >
-              <span
-                className="absolute -left-1/2 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/70 to-transparent opacity-70"
-                style={{ animation: "navLiquidSweep 1400ms linear infinite" }}
-              />
+              <ArrowLeft size={12} />
+              Back
+            </button>
+            <span
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10,
+                letterSpacing: "0.14em",
+                color: "rgba(240,236,232,0.3)",
+              }}
+            >
+              {business.period}
+            </span>
+          </div>
+
+          {/* Title */}
+          <div style={{ borderBottom: `1px solid ${accentBorder}`, paddingBottom: 20, marginBottom: 20 }}>
+            <div
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: accent,
+                marginBottom: 8,
+              }}
+            >
+              {business.state === "success" ? "✓ Success" : "✗ Failure"}
             </div>
-            {navItems.map((item, index) => {
-              const isActive = activeSection === item.id;
-              return (
-                <button
-                  data-nav-id={item.id}
-                  key={item.id}
-                  onClick={() => scrollTo(item.id)}
-                  className={`group relative z-10 flex w-full items-center justify-between overflow-hidden rounded-lg px-2.5 py-2 text-left text-[12px] uppercase tracking-[0.14em] transition-all duration-300 ${
-                    isActive
-                      ? "text-slate-800"
-                      : "text-slate-500 hover:bg-white/55 hover:text-slate-800"
-                  }`}
+            <h3
+              className="font-display"
+              style={{ fontSize: "1.6rem", fontWeight: 700, color: "#f0ece8", letterSpacing: "-0.01em" }}
+            >
+              {business.name}
+            </h3>
+            <p style={{ marginTop: 10, fontSize: 14, color: "rgba(240,236,232,0.6)", lineHeight: 1.6 }}>
+              {business.detail}
+            </p>
+            <p style={{ marginTop: 6, fontSize: 13, color: "rgba(240,236,232,0.5)" }}>
+              <span style={{ color: accent, fontWeight: 500 }}>Outcome: </span>
+              {business.outcome}
+            </p>
+          </div>
+
+          {/* Detail panels */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            {[
+              { label: "Context", value: business.context },
+              { label: "Failure Signal", value: business.failureSignal },
+              { label: "Key Learning", value: business.learning },
+            ].map(({ label, value }) => (
+              <div
+                key={label}
+                style={{
+                  padding: 14,
+                  background: accentDim,
+                  border: `1px solid ${accentBorder}`,
+                  borderRadius: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 9,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: accent,
+                    marginBottom: 8,
+                  }}
                 >
-                  <span className="relative z-10 font-medium">{item.label}</span>
-                  <span className={`relative z-10 text-[10px] ${isActive ? "text-slate-500" : "text-slate-400 group-hover:text-slate-600"}`}>
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
+                  {label}
+                </div>
+                <p style={{ fontSize: 13, color: "rgba(240,236,232,0.75)", lineHeight: 1.55 }}>{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </article>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   PORTFOLIO PROJECTS
+───────────────────────────────────────────── */
+const projects = [
+  {
+    title: "Cerebrum App",
+    desc: "Advanced web platform analyzing human cognitive responses to video using Meta's TRIBE v2 multimodal brain encoding AI. Predicts fMRI-like activity from standard video files.",
+    stack: ["AI", "Web", "Research"],
+    highlight: true,
+    actions: [
+      { label: "GitHub", url: "https://github.com/fayaspsulfikkar/cerebrum-app" },
+      { label: "Paper", url: "https://fayaspsulfikkar.github.io/crbrm_rsrch_ppr/" },
+    ],
+  },
+  {
+    title: "NASA-like 3D Solar System",
+    desc: "A space-style 3D solar system inspired by NASA visuals, with smooth motion and interactive planets.",
+    stack: ["JavaScript", "3D"],
+    url: "https://interactive-universe-five.vercel.app/",
+  },
+  {
+    title: "Simple Money Planner",
+    desc: "A clean budgeting page to plan income and expenses with an easy-to-understand layout.",
+    stack: ["HTML", "CSS"],
+    url: "https://fayaspsulfikkar.github.io/money-pro/",
+  },
+  {
+    title: "Daily Expense Tracker",
+    desc: "A lightweight tracker to record daily spending and quickly check your money flow.",
+    stack: ["JavaScript"],
+    url: "https://money-pulse-bay.vercel.app/",
+  },
+  {
+    title: "Personal System Log",
+    desc: "A timeline of my real startup journey — failures, lessons, and rebuild phases, documented publicly.",
+    stack: ["HTML"],
+    url: "https://fayaspsulfikkar.github.io/self-log/",
+  },
+];
+
+const ProjectCard = ({ project }) => {
+  return (
+    <article
+      className="dark-card"
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        height: 220,
+        borderColor: project.highlight
+          ? "rgba(192,57,43,0.4)"
+          : "rgba(255,255,255,0.07)",
+        boxShadow: project.highlight
+          ? "0 0 30px rgba(192,57,43,0.12), inset 0 0 60px rgba(192,57,43,0.03)"
+          : "none",
+      }}
+    >
+      {/* Top accent */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 16,
+          width: project.highlight ? 48 : 24,
+          height: 2,
+          background: project.highlight ? "var(--red)" : "rgba(255,255,255,0.15)",
+          borderRadius: "0 0 2px 2px",
+          boxShadow: project.highlight ? "0 0 10px rgba(192,57,43,0.6)" : "none",
+        }}
+      />
+
+      {/* Clickable overlay */}
+      {project.url && (
+        <a
+          href={project.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ position: "absolute", inset: 0, zIndex: 0 }}
+          aria-label={`Visit ${project.title}`}
+        />
+      )}
+
+      <div style={{ padding: "20px 16px 14px", height: "100%", display: "flex", flexDirection: "column", position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+          <h3
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 12,
+              fontWeight: 600,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: project.highlight ? "#e57370" : "#f0ece8",
+              lineHeight: 1.3,
+              flex: 1,
+            }}
+          >
+            {project.title}
+            {project.highlight && (
+              <span
+                style={{
+                  display: "inline-block",
+                  marginLeft: 8,
+                  fontSize: 9,
+                  fontWeight: 400,
+                  color: "rgba(192,57,43,0.6)",
+                  letterSpacing: "0.14em",
+                  textTransform: "lowercase",
+                  fontStyle: "italic",
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+              >
+                research
+              </span>
+            )}
+          </h3>
+        </div>
+
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10, flex: 1, display: "flex", flexDirection: "column" }}>
+          <p style={{ fontSize: 12, color: "rgba(240,236,232,0.55)", lineHeight: 1.55, flex: 1 }}>
+            {project.desc}
+          </p>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10, marginBottom: 8 }}>
+            {project.stack.map((s) => (
+              <span
+                key={s}
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: project.highlight ? "rgba(192,57,43,0.7)" : "rgba(240,236,232,0.3)",
+                  padding: "2px 8px",
+                  border: `1px solid ${project.highlight ? "rgba(192,57,43,0.2)" : "rgba(255,255,255,0.08)"}`,
+                  borderRadius: 4,
+                }}
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+
+          {project.actions ? (
+            <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>
+              {project.actions.map((a) => (
+                <a
+                  key={a.label}
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "5px 12px",
+                    background: "rgba(192,57,43,0.12)",
+                    border: "1px solid rgba(192,57,43,0.3)",
+                    borderRadius: 6,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 9,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "#e57370",
+                    textDecoration: "none",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(192,57,43,0.22)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(192,57,43,0.12)";
+                  }}
+                >
+                  {a.label} <ArrowUpRight size={9} />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 9,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "rgba(240,236,232,0.2)",
+              }}
+            >
+              Visit →
+            </p>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   MAIN APP
+───────────────────────────────────────────── */
+export default function App() {
+  const [activeSection, setActiveSection] = useState("home");
+  const [hasScrolled, setHasScrolled] = useState(false);
+  const [expandedBusiness, setExpandedBusiness] = useState(null);
+  const scrollRef = useRef(null);
+
+  useReveal();
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const sections = Array.from(document.querySelectorAll("section[id]"));
+    let raf = 0;
+
+    const update = () => {
+      raf = 0;
+      setHasScrolled(container.scrollTop > 8);
+      const marker = container.scrollTop + container.clientHeight * 0.3;
+      let curr = sections[0]?.id || "home";
+      for (const s of sections) {
+        if (s.offsetTop <= marker) curr = s.id;
+        else break;
+      }
+      setActiveSection((prev) => (prev === curr ? prev : curr));
+    };
+
+    const req = () => { if (!raf) raf = requestAnimationFrame(update); };
+    req();
+    container.addEventListener("scroll", req, { passive: true });
+    window.addEventListener("resize", req);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      container.removeEventListener("scroll", req);
+      window.removeEventListener("resize", req);
+    };
+  }, []);
+
+  const scrollTo = (id) =>
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+
+  const selectedBusiness = businessExperiments.find((b) => b.name === expandedBusiness) ?? null;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        minHeight: "100vh",
+        background: "var(--black)",
+        display: "flex",
+        overflow: "hidden",
+      }}
+    >
+      {/* Ambient red glow top-right */}
+      <div
+        style={{
+          position: "fixed",
+          top: "-10%",
+          right: "-5%",
+          width: 500,
+          height: 500,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(192,57,43,0.06) 0%, transparent 70%)",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+      {/* Ambient glow bottom-left */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "-10%",
+          left: "10%",
+          width: 400,
+          height: 400,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(192,57,43,0.04) 0%, transparent 70%)",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+
+      {/* NAV RAIL */}
+      <NavRail active={activeSection} />
+
+      {/* FIXED RIGHT PHOTO CARD (Desktop) */}
+      <aside
+        aria-label="Operator Console"
+        style={{
+          position: "fixed",
+          right: 28,
+          top: "50%",
+          transform: "translateY(-50%)",
+          zIndex: 40,
+        }}
+        className="hidden lg:flex flex-col items-center pointer-events-auto"
+      >
+        <HeroVisual activeSection={activeSection} />
+      </aside>
+
+      {/* Top bar */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 40,
+          pointerEvents: "none",
+        }}
+        className="px-6 py-4"
+      >
+        <div className="w-full flex justify-between items-center">
+          <div className="hidden lg:block w-[200px] xl:w-[220px] flex-shrink-0" />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "10px 20px",
+              background: hasScrolled ? "rgba(10,10,10,0.92)" : "transparent",
+              border: hasScrolled ? "1px solid rgba(255,255,255,0.07)" : "1px solid transparent",
+              borderRadius: 12,
+              backdropFilter: hasScrolled ? "blur(16px)" : "none",
+              transition: "all 0.4s ease",
+            }}
+            className="flex-1 min-w-0 max-w-[820px] xl:max-w-[860px] mx-auto pointer-events-auto"
+          >
+            <span
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 11,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "rgba(192,57,43,0.7)",
+              }}
+            >
+              FPS
+            </span>
+            <span
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10,
+                letterSpacing: "0.14em",
+                color: "rgba(240,236,232,0.3)",
+              }}
+            >
+              v2026 // {activeSection.toUpperCase()}
+            </span>
+          </div>
+          <div className="hidden lg:block w-[340px] xl:w-[360px] flex-shrink-0" />
         </div>
       </div>
 
-      <div className="fixed bottom-6 left-4 z-40 hidden border border-slate-300/80 bg-white/22 p-2 font-mono text-[8px] uppercase leading-tight tracking-wider text-slate-500 backdrop-blur-sm sm:block md:bottom-8 md:left-8 md:p-3 md:text-[10px]">
-        END
-        <br />
-        IS
-        <br />
-        UI .
+      {/* Bottom corner decorations */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 24,
+          left: 24,
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 9,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "rgba(240,236,232,0.15)",
+          lineHeight: 1.6,
+          zIndex: 40,
+        }}
+        className="hidden sm:block"
+      >
+        Portfolio
+        <br />System
+        <br />vNext
+      </div>
+      <div
+        style={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 10,
+          color: "rgba(240,236,232,0.15)",
+          zIndex: 40,
+        }}
+      >
+        013
       </div>
 
-      <div className="fixed bottom-6 right-4 z-40 text-xs font-medium tracking-wider text-slate-500 sm:text-sm md:bottom-8 md:right-8">013</div>
+      {/* SCROLL CONTAINER */}
+      <div
+        ref={scrollRef}
+        className="custom-scrollbar"
+        style={{
+          position: "relative",
+          zIndex: 10,
+          marginLeft: 0,
+          flex: 1,
+          height: "100vh",
+          overflowY: "auto",
+          overflowX: "hidden",
+          scrollBehavior: "smooth",
+        }}
+      >
+        <div className="w-full flex justify-between min-h-screen">
+          {/* Left Column Spacer: reserves width for fixed NavRail */}
+          <div className="hidden lg:block w-[200px] xl:w-[220px] flex-shrink-0" />
 
-      <div className="custom-scrollbar relative z-10 ml-0 h-screen flex-1 overflow-y-auto scroll-smooth lg:ml-64">
-        <div className="mx-auto max-w-4xl px-4 pb-32 pt-20 sm:px-8 sm:pb-48 sm:pt-24 lg:px-16 lg:pb-64 lg:pt-32">
-          <section id="home" className="relative mb-16 flex min-h-[80vh] flex-col justify-center sm:mb-24 lg:mb-32">
-            <div className="pointer-events-none absolute right-0 top-0 opacity-20 mix-blend-overlay">
-              <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" />
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#grid)" />
-              </svg>
-            </div>
+          {/* Center Column: Perfectly centered in the remaining space */}
+          <main className="flex-1 min-w-0 max-w-[820px] xl:max-w-[860px] mx-auto px-6 sm:px-10 py-12 pb-36">
 
-            <div className="mt-8 flex w-full flex-col items-center justify-between gap-8 sm:gap-12 lg:mt-12 lg:gap-32 lg:flex-row">
-              <div className="z-10 flex-1">
-                <div className="mb-3 text-[9px] uppercase tracking-[0.3em] text-slate-500 sm:mb-4 lg:mb-6">Builder / Entrepreneur</div>
-                <h1 className="mb-4 text-3xl font-light leading-[1.1] tracking-tighter text-slate-800 sm:text-4xl lg:mb-6 lg:text-7xl">
-                  Fayas P <br />
-                  <span className="font-semibold">Sulfikkar</span>
+            {/* ══ HOME ══ */}
+            <section
+              id="home"
+              style={{
+                minHeight: "85vh",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                paddingTop: 40,
+                paddingBottom: 60,
+                position: "relative",
+              }}
+            >
+              {/* Grid bg decoration */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundImage: `
+                    linear-gradient(rgba(192,57,43,0.04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(192,57,43,0.04) 1px, transparent 1px)
+                  `,
+                  backgroundSize: "60px 60px",
+                  pointerEvents: "none",
+                  maskImage: "radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%)",
+                }}
+              />
+
+              <div style={{ position: "relative", zIndex: 1 }} className="w-full">
+                <div
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 11,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "var(--red)",
+                    marginBottom: 16,
+                  }}
+                  className="reveal"
+                >
+                  Builder · Entrepreneur · AI/ML
+                </div>
+
+                <h1
+                  className="font-display reveal"
+                  style={{
+                    fontSize: "clamp(2.6rem, 5.5vw, 4.5rem)",
+                    fontWeight: 900,
+                    lineHeight: 1.05,
+                    letterSpacing: "-0.025em",
+                    color: "#f0ece8",
+                    marginBottom: 20,
+                    transitionDelay: "80ms",
+                  }}
+                >
+                  Fayas P<br />
+                  <span
+                    style={{
+                      fontStyle: "italic",
+                      color: "transparent",
+                      WebkitTextStroke: "1px rgba(240,236,232,0.6)",
+                    }}
+                  >
+                    Sulfikkar
+                  </span>
                 </h1>
-                <div className="flex gap-3 sm:gap-4">
-                  <GlassButton icon={ArrowUpRight} onClick={() => scrollTo("portfolio")}>
+
+                <p
+                  style={{
+                    fontSize: 15,
+                    color: "rgba(240,236,232,0.6)",
+                    lineHeight: 1.7,
+                    maxWidth: 540,
+                    marginBottom: 32,
+                  }}
+                  className="reveal"
+                >
+                  Not a highlight reel — a reconstruction interface. Every collapse became pattern recognition.
+                  Starting from extracted experience.
+                </p>
+
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 36 }} className="reveal">
+                  <RedButton onClick={() => scrollTo("portfolio")} icon={ArrowUpRight}>
                     View Portfolio
-                  </GlassButton>
+                  </RedButton>
+                  <GhostButton onClick={() => scrollTo("businesses")}>
+                    Business Log
+                  </GhostButton>
+                </div>
+
+                {/* Mobile photo card in flow (on desktop it is fixed on the right) */}
+                <div className="mt-8 mb-6 flex justify-center lg:hidden">
+                  <HeroVisual activeSection={activeSection} />
                 </div>
               </div>
 
-              <div className="flex h-[280px] flex-1 items-center justify-center sm:h-[340px] lg:h-[420px]">
-                <TesseractProjection />
+              {/* GitHub card */}
+              <div
+                className="reveal"
+                style={{
+                  marginTop: 16,
+                  maxWidth: 620,
+                  background: "var(--charcoal-2)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                }}
+              >
+                <GitHubProfile />
               </div>
-            </div>
 
-            <div className="mt-4 sm:mt-6 md:w-[80vw] lg:w-[60vw] w-[90vw] block z-10 relative left-1/2 -translate-x-1/2">
-              <GitHubProfile />
-            </div>
-
+            {/* Scroll hint */}
             <button
               type="button"
               onClick={() => scrollTo("businesses")}
-              className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/70 bg-white/30 px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] text-slate-500 backdrop-blur-sm transition-colors duration-300 hover:bg-white/48 sm:bottom-5 lg:hidden"
-              style={{ animation: "scrollLiquidFloat 1.8s ease-in-out infinite" }}
+              style={{
+                position: "absolute",
+                bottom: 20,
+                left: "50%",
+                transform: "translateX(-50%)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 6,
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                animation: "scrollFloat 2s ease-in-out infinite",
+                color: "rgba(240,236,232,0.3)",
+              }}
+              className="lg:hidden"
             >
-              Scroll
+              <span
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Scroll
+              </span>
+              <ChevronDown size={14} />
             </button>
           </section>
 
+          {/* ══ BUSINESSES ══ */}
+          <section id="businesses" style={{ paddingTop: 80, paddingBottom: 80 }}>
+            <SectionHeading index="01" subtitle="Ventures" title="Business" />
 
-
-          <section id="businesses" className="min-h-auto py-8 sm:py-10 lg:py-12">
-            <SectionHeading subtitle="01 / Businesses" title="Business" />
-
-            <div className="relative grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {businessExperiments.map((business) => {
-                const tone = getBusinessTone(business.state);
-                return (
-                  <article
-                    key={business.name}
-                    className={`group relative h-[198px] overflow-hidden rounded-xl border text-xs backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 ${tone.cardBorder} ${tone.cardBg}`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setExpandedBusiness(business.name)}
-                      className="flex h-full w-full flex-col p-3 text-left sm:p-3.5"
-                    >
-                      <div className={`absolute left-1.5 top-0 h-1 w-8 -translate-y-[1px] rounded-b-md border-x border-b ${tone.tab}`}></div>
-
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <h3 className={`flex-1 text-[12px] font-semibold uppercase tracking-[0.07em] leading-tight sm:text-[13px] ${tone.heading}`}>
-                          {business.name}
-                        </h3>
-                        <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em] sm:text-[9px] ${tone.badge}`}>
-                          {business.period}
-                        </span>
-                      </div>
-
-                      <div className={`flex flex-1 flex-col border-t pt-2 ${tone.line}`}>
-                        <p className={`text-[12px] leading-snug line-clamp-2 sm:text-[13px] ${tone.body}`}>{business.detail}</p>
-                        <p className={`mt-1.5 text-[11px] leading-snug line-clamp-2 sm:text-[12px] ${tone.bodyStrong}`}>
-                          <span className="font-medium">Outcome:</span> {business.outcome}
-                        </p>
-                        <p className={`mt-auto pt-1 text-[9px] italic tracking-[0.14em] sm:text-[10px] ${tone.meta}`}>Click to enter the folder &gt;</p>
-                      </div>
-                    </button>
-                  </article>
-                );
-              })}
-
-            </div>
-          </section>
-
-          <section id="portfolio" className="min-h-auto py-8 sm:py-10 lg:py-12">
-            <SectionHeading subtitle="02 / Portfolio" title="Selected Works" />
-            <p className="mb-4 max-w-2xl text-sm leading-relaxed text-slate-600 sm:mb-5 sm:text-[15px]">
-              Built through vibe coding: fast product intuition, rapid interface iteration, and execution-first refinement.
+            <p
+              style={{
+                fontSize: 15,
+                color: "rgba(240,236,232,0.45)",
+                lineHeight: 1.7,
+                maxWidth: 520,
+                marginBottom: 48,
+              }}
+              className="reveal"
+            >
+              Six experiments across 7 years. Five failures, one success. Each documented as a system log — context, signal, and extracted learning.
             </p>
 
-            <div className="relative grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-2">
-              {[
-                {
-                  title: "Cerebrum App",
-                  desc: "Advanced web platform analyzing human cognitive responses to video using Meta's TRIBE v2 AI.",
-                  stack: "AI / Web",
-                  year: "Public",
-                  url: "https://github.com/fayaspsulfikkar/cerebrum-app",
-                  actions: [
-                    { label: "GitHub", url: "https://github.com/fayaspsulfikkar/cerebrum-app" },
-                    { label: "Paper", url: "https://fayaspsulfikkar.github.io/crbrm_rsrch_ppr/" }
-                  ]
-                },
-                {
-                  title: "NASA-like 3D Solar System",
-                  desc: "A space-style 3D solar system inspired by NASA visuals, with smooth motion and interactive planets.",
-                  stack: "JavaScript",
-                  year: "Public",
-                  url: "https://interactive-universe-five.vercel.app/",
-                },
-                {
-                  title: "Simple Money Planner",
-                  desc: "A clean budgeting page to plan income and expenses with an easy-to-understand layout.",
-                  stack: "HTML",
-                  year: "Public",
-                  url: "https://fayaspsulfikkar.github.io/money-pro/",
-                },
-                {
-                  title: "Daily Expense Tracker",
-                  desc: "A lightweight tracker to record daily spending and quickly check your money flow.",
-                  stack: "JavaScript",
-                  year: "Public",
-                  url: "https://money-pulse-bay.vercel.app/",
-                },
-                {
-                  title: "Personal System Log",
-                  desc: "A timeline of my real startup journey, including failures, lessons, and rebuild phases.",
-                  stack: "HTML",
-                  year: "Public",
-                  url: "https://fayaspsulfikkar.github.io/self-log/",
-                },
-              ].map((project) => (
-                <article
-                  key={project.title}
-                  className={`group relative h-[198px] overflow-hidden rounded-xl border backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 ${
-                    project.title === "Cerebrum App"
-                      ? "border-blue-400/80 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:bg-blue-500/20 hover:border-blue-400 hover:shadow-[0_0_25px_rgba(59,130,246,0.5)]"
-                      : "border-slate-200/70 bg-white/28 hover:bg-white/40"
-                  }`}
-                >
-                  <a href={project.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 z-0 cursor-pointer">
-                    <span className="sr-only">Visit {project.title}</span>
-                  </a>
-
-                  <div className="pointer-events-none relative z-10 flex h-full w-full flex-col p-3 text-left sm:p-3.5">
-                    <div className={`absolute left-1.5 top-0 h-1 w-8 -translate-y-[1px] rounded-b-md border-x border-b ${
-                      project.title === "Cerebrum App"
-                        ? "border-blue-400 bg-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.8)]"
-                        : "border-slate-300/60 bg-white/40"
-                    }`}></div>
-
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <h3 className={`flex-1 text-[12px] font-semibold uppercase tracking-[0.07em] leading-tight sm:text-[13px] flex items-center gap-1.5 flex-wrap ${
-                        project.title === "Cerebrum App"
-                          ? "text-blue-800 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-                          : "text-slate-700"
-                      }`}>
-                        {project.title}
-                        {project.title === "Cerebrum App" && (
-                          <span className="text-[9px] lowercase italic normal-case font-normal text-blue-600/80 tracking-normal drop-shadow-none sm:text-[10px]">
-                            research
-                          </span>
-                        )}
-                      </h3>
-                      <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em] sm:text-[9px] ${
-                        project.title === "Cerebrum App"
-                          ? "border-blue-300/80 bg-blue-100/60 text-blue-700 shadow-[0_0_10px_rgba(59,130,246,0.3)]"
-                          : "border-slate-200 bg-white/50 text-slate-500"
-                      }`}>
-                        {project.year}
-                      </span>
-                    </div>
-
-                    <div className={`flex flex-1 flex-col border-t pt-2 ${
-                      project.title === "Cerebrum App" ? "border-blue-300/50" : "border-slate-200/60"
-                    }`}>
-                      <p className={`text-[12px] leading-snug line-clamp-2 sm:text-[13px] ${
-                        project.title === "Cerebrum App" ? "text-blue-900/80" : "text-slate-600"
-                      }`}>{project.desc}</p>
-                      <p className={`mt-1.5 text-[11px] line-clamp-1 sm:text-[12px] ${
-                        project.title === "Cerebrum App" ? "text-blue-800/70" : "text-slate-500"
-                      }`}>
-                        <span className="font-medium">Stack:</span> {project.stack}
-                      </p>
-                      
-                      {project.actions ? (
-                        <div className="pointer-events-auto mt-auto flex items-center gap-2 pt-1">
-                          {project.actions.map(action => (
-                            <a 
-                              key={action.label} 
-                              href={action.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="flex items-center gap-1 rounded bg-blue-500/20 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.1em] text-blue-700 shadow-[0_0_5px_rgba(59,130,246,0.15)] transition-colors hover:bg-blue-500/30 hover:text-blue-800"
-                            >
-                              {action.label} <ArrowUpRight size={10} strokeWidth={2.5} />
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className={`mt-auto flex items-center gap-1 pt-1 text-[10px] italic tracking-[0.14em] transition-colors sm:text-[11px] ${
-                          project.title === "Cerebrum App" ? "text-blue-600 group-hover:text-blue-800" : "text-slate-400 group-hover:text-slate-600"
-                        }`}>
-                          Visit &gt;
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </article>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                gap: 16,
+              }}
+              className="stagger"
+            >
+              {businessExperiments.map((b, i) => (
+                <div key={b.name} className="reveal" style={{ transitionDelay: `${i * 60}ms` }}>
+                  <BusinessCard business={b} onClick={setExpandedBusiness} />
+                </div>
               ))}
             </div>
           </section>
 
-          <section id="skills" className="min-h-auto py-8 sm:py-10 lg:py-12">
-            <SectionHeading subtitle="03 / Capability" title="Capabilities + Trajectory" />
-            <p className="mb-4 max-w-2xl text-sm leading-relaxed text-slate-600 sm:mb-5 sm:text-[15px]">
-              I operate as a vibe coder with a systems mindset, using code as a medium for speed, clarity, and product direction.
+          {/* ══ PORTFOLIO ══ */}
+          <section id="portfolio" style={{ paddingTop: 80, paddingBottom: 80 }}>
+            <SectionHeading index="02" subtitle="Works" title="Selected Works" />
+
+            <p
+              style={{
+                fontSize: 15,
+                color: "rgba(240,236,232,0.45)",
+                lineHeight: 1.7,
+                maxWidth: 520,
+                marginBottom: 48,
+              }}
+              className="reveal"
+            >
+              Built through vibe coding: fast product intuition, rapid interface iteration, and execution-first refinement.
             </p>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <article className="rounded-2xl border border-white/75 bg-white/30 p-5 backdrop-blur-md lg:col-span-5 lg:p-6">
-                <div className="mb-4 text-[10px] uppercase tracking-[0.2em] text-slate-500">Trajectory</div>
-                <div className="space-y-3">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {projects.map((p, i) => (
+                <div key={p.title} className="reveal" style={{ transitionDelay: `${i * 70}ms` }}>
+                  <ProjectCard project={p} />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ══ SKILLS / CAPABILITIES ══ */}
+          <section id="skills" style={{ paddingTop: 80, paddingBottom: 80 }}>
+            <SectionHeading index="03" subtitle="Architecture" title="Capabilities" />
+
+            <p
+              style={{
+                fontSize: 15,
+                color: "rgba(240,236,232,0.45)",
+                lineHeight: 1.7,
+                maxWidth: 520,
+                marginBottom: 48,
+              }}
+              className="reveal"
+            >
+              I operate as a vibe coder with a systems mindset — using code as a medium for speed, clarity, and product direction.
+            </p>
+
+            <div style={{ display: "grid", gap: 16 }} className="lg:grid-cols-12">
+
+              {/* Trajectory timeline */}
+              <div
+                className="reveal dark-card lg:col-span-5"
+                style={{ padding: 24 }}
+              >
+                <div className="mono-tag" style={{ marginBottom: 20 }}>Trajectory</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                   {[
                     {
-                      year: "2019 - 2023",
+                      year: "2019 – 2023",
                       title: "Entrepreneurial Attempts",
-                      detail: "Tested multiple offline and online business models and built strong failure-analysis discipline.",
+                      detail: "Tested multiple offline and online business models. Built strong failure-analysis discipline.",
                     },
                     {
-                      year: "2023 - 2026",
+                      year: "2023 – 2026",
                       title: "Bootstrapped Brand Operator",
                       detail: "Ran EIGHTY6TH with tighter loops across production, inventory, and marketplace feedback.",
                     },
                     {
-                      year: "2026 - Present",
+                      year: "2026 – Present",
                       title: "AI/ML Reconstruction",
                       detail: "Applying entrepreneurial pattern recognition to product systems, interfaces, and AI workflows.",
                     },
-                  ].map((phase, idx) => (
-                    <div key={phase.year} className="relative rounded-xl border border-white/80 bg-white/40 p-3.5">
-                      {idx < 2 && <div className="pointer-events-none absolute -bottom-3 left-4 h-3 w-px bg-slate-300/70"></div>}
-                      <div className="mb-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">{phase.year}</div>
-                      <h4 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-800">{phase.title}</h4>
-                      <p className="mt-1.5 text-[13px] leading-snug text-slate-600">{phase.detail}</p>
+                  ].map((phase, idx, arr) => (
+                    <div key={phase.year} style={{ position: "relative", paddingLeft: 24, paddingBottom: idx < arr.length - 1 ? 24 : 0 }}>
+                      {/* Vertical line */}
+                      {idx < arr.length - 1 && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: 5,
+                            top: 12,
+                            bottom: 0,
+                            width: 1,
+                            background: "linear-gradient(to bottom, rgba(192,57,43,0.4), rgba(192,57,43,0.05))",
+                          }}
+                        />
+                      )}
+                      {/* Dot */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          top: 6,
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          border: "2px solid var(--red)",
+                          background: idx === arr.length - 1 ? "var(--red)" : "var(--charcoal-2)",
+                          boxShadow: idx === arr.length - 1 ? "0 0 8px rgba(192,57,43,0.5)" : "none",
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 9,
+                          letterSpacing: "0.14em",
+                          textTransform: "uppercase",
+                          color: "rgba(192,57,43,0.6)",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {phase.year}
+                      </div>
+                      <h4
+                        style={{
+                          fontFamily: "'Inter', sans-serif",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          color: "#f0ece8",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {phase.title}
+                      </h4>
+                      <p style={{ fontSize: 13, color: "rgba(240,236,232,0.5)", lineHeight: 1.55 }}>
+                        {phase.detail}
+                      </p>
                     </div>
                   ))}
                 </div>
-              </article>
+              </div>
 
-              <article className="rounded-2xl border border-white/75 bg-white/30 p-5 backdrop-blur-md lg:col-span-7 lg:p-6">
-                <div className="mb-4 text-[10px] uppercase tracking-[0.2em] text-slate-500">Capability Architecture</div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {[
-                    {
-                      title: "Strategy",
-                      detail: "Entrepreneurship, Systems Thinking, Execution Under Constraint",
-                    },
-                    {
-                      title: "Operations",
-                      detail: "E-commerce Operations, Product Experimentation, Critical Iteration",
-                    },
-                    {
-                      title: "Technology",
-                      detail: "AI/ML Learning, UI Architecture, React/Tailwind Prototyping",
-                    },
-                    {
-                      title: "Working Mode",
-                      detail: "Hypothesis-first, fast iteration loops, and data-led decision refinement",
-                    },
-                  ].map((group) => (
-                    <div key={group.title} className="rounded-xl border border-white/80 bg-white/40 p-3.5">
-                      <h4 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-800">{group.title}</h4>
-                      <p className="mt-1.5 text-[13px] leading-snug text-slate-600">{group.detail}</p>
-                    </div>
-                  ))}
+              {/* Capability groups */}
+              <div className="reveal lg:col-span-7" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div
+                  className="dark-card"
+                  style={{ padding: 24 }}
+                >
+                  <div className="mono-tag" style={{ marginBottom: 16 }}>Capability Architecture</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {[
+                      {
+                        title: "Strategy",
+                        detail: "Entrepreneurship · Systems Thinking · Execution Under Constraint",
+                      },
+                      {
+                        title: "Operations",
+                        detail: "E-commerce · Product Experimentation · Critical Iteration",
+                      },
+                      {
+                        title: "Technology",
+                        detail: "AI/ML Learning · UI Architecture · React / Tailwind",
+                      },
+                      {
+                        title: "Working Mode",
+                        detail: "Hypothesis-first, fast iteration loops, data-led decision refinement",
+                      },
+                    ].map((g) => (
+                      <div
+                        key={g.title}
+                        style={{
+                          padding: "14px",
+                          background: "var(--charcoal-3)",
+                          border: "1px solid rgba(255,255,255,0.05)",
+                          borderRadius: 10,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontFamily: "'Inter', sans-serif",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            color: "var(--red)",
+                            marginBottom: 6,
+                          }}
+                        >
+                          {g.title}
+                        </div>
+                        <p style={{ fontSize: 12, color: "rgba(240,236,232,0.5)", lineHeight: 1.5 }}>
+                          {g.detail}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="mt-4 rounded-xl border border-white/80 bg-white/40 p-3.5">
-                  <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">Execution Signals</div>
-                  <div className="flex flex-wrap gap-2 text-[12px] text-slate-600">
+                {/* Execution signals */}
+                <div
+                  className="dark-card"
+                  style={{ padding: "16px 20px" }}
+                >
+                  <div className="mono-tag" style={{ marginBottom: 12 }}>Execution Signals</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {[
                       "Fast test cycles",
                       "Constraint-led decisions",
                       "Interface clarity",
                       "Systemized learning",
-                    ].map((signal) => (
-                      <span key={signal} className="rounded-full border border-slate-200/80 bg-white/55 px-2.5 py-1">
-                        {signal}
+                      "Post-failure diagnostics",
+                      "Long-cycle thinking",
+                    ].map((s) => (
+                      <span
+                        key={s}
+                        style={{
+                          padding: "5px 12px",
+                          border: "1px solid rgba(192,57,43,0.2)",
+                          borderRadius: 999,
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 10,
+                          letterSpacing: "0.08em",
+                          color: "rgba(240,236,232,0.5)",
+                          background: "rgba(192,57,43,0.04)",
+                        }}
+                      >
+                        {s}
                       </span>
                     ))}
                   </div>
                 </div>
-              </article>
+              </div>
             </div>
           </section>
 
-          <section id="contact" className="flex min-h-auto flex-col items-center justify-center py-12 text-center sm:py-16 lg:py-20">
-            <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-full border border-white/75 bg-white/36 shadow-inner backdrop-blur-xl">
-              <Mail className="text-slate-700" size={24} />
+          {/* ══ CONTACT ══ */}
+          <section
+            id="contact"
+            style={{
+              paddingTop: 80,
+              paddingBottom: 80,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              textAlign: "center",
+            }}
+          >
+            {/* Icon */}
+            <div
+              className="reveal-scale"
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: "50%",
+                border: "1px solid rgba(192,57,43,0.4)",
+                background: "rgba(192,57,43,0.08)",
+                display: "grid",
+                placeItems: "center",
+                marginBottom: 32,
+                boxShadow: "0 0 32px rgba(192,57,43,0.12)",
+              }}
+            >
+              <Mail size={28} color="var(--red)" />
             </div>
-            <h2 className="mb-4 text-2xl font-light tracking-tight text-slate-900 sm:mb-5 sm:text-3xl lg:mb-6 lg:text-5xl">Initiate Connection</h2>
-            <p className="mb-8 max-w-sm px-2 font-light text-slate-600 sm:mb-10 sm:max-w-md sm:px-0 lg:mb-12">
+
+            <h2
+              className="font-display reveal"
+              style={{
+                fontSize: "clamp(2.4rem, 6vw, 5rem)",
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.1,
+                color: "#f0ece8",
+                marginBottom: 20,
+              }}
+            >
+              Initiate<br />
+              <span style={{ fontStyle: "italic", color: "var(--red)" }}>Connection</span>
+            </h2>
+
+            <p
+              className="reveal"
+              style={{
+                fontSize: 15,
+                color: "rgba(240,236,232,0.45)",
+                lineHeight: 1.7,
+                maxWidth: 400,
+                marginBottom: 40,
+              }}
+            >
               Open to conversations around technology, systems, and meaningful collaboration.
             </p>
 
-            <GlassButton onClick={() => (window.location.href = "mailto:hello@example.com")} className="px-8 py-4 text-lg">
-              Transmit Message
-            </GlassButton>
+            <div className="reveal" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 60 }}>
+              <RedButton href="mailto:fayas@system" icon={Mail}>
+                Send Message
+              </RedButton>
+              <GhostButton href="https://in.linkedin.com/in/fayas-p-sulfikkar-28602520a" icon={ExternalLink}>
+                LinkedIn
+              </GhostButton>
+            </div>
 
-            <div className="mt-16 flex gap-4 text-xs tracking-wide text-slate-500 sm:gap-6 sm:text-sm sm:tracking-wider lg:mt-24">
-              <a
-                href="https://in.linkedin.com/in/fayas-p-sulfikkar-28602520a"
-                target="_blank"
-                rel="noreferrer"
-                className="transition-colors hover:text-slate-900"
-              >
-                LINKEDIN
-              </a>
-              <a
-                href="https://fayaspsulfikkar.github.io/self-log/"
-                target="_blank"
-                rel="noreferrer"
-                className="transition-colors hover:text-slate-900"
-              >
-                SYSTEM-LOG
-              </a>
+            <div
+              className="reveal"
+              style={{
+                display: "flex",
+                gap: 32,
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+                paddingTop: 40,
+              }}
+            >
+              {[
+                { label: "LinkedIn", href: "https://in.linkedin.com/in/fayas-p-sulfikkar-28602520a" },
+                { label: "GitHub", href: "https://github.com/fayaspsulfikkar" },
+                { label: "System Log", href: "https://fayaspsulfikkar.github.io/self-log/" },
+              ].map(({ label, href }) => (
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: "rgba(240,236,232,0.3)",
+                    textDecoration: "none",
+                    transition: "color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = "var(--red)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(240,236,232,0.3)"; }}
+                >
+                  {label}
+                </a>
+              ))}
             </div>
           </section>
+
+          </main>
+
+          {/* Right Column Spacer: reserves width for fixed HeroVisual */}
+          <div className="hidden lg:block w-[340px] xl:w-[360px] flex-shrink-0" />
         </div>
       </div>
 
-      {selectedBusiness && (
-        <div className="fixed inset-0 z-[60] grid place-items-center p-3 sm:p-5 lg:p-8">
-          <button
-            type="button"
-            aria-label="Close business details"
-            onClick={() => setExpandedBusiness(null)}
-            className="absolute inset-0 bg-white/12 backdrop-blur-md"
-            style={{ animation: "blurIn 260ms ease-out" }}
-          />
+      {/* ── BUSINESS MODAL ── */}
+      <BusinessModal
+        business={selectedBusiness}
+        onClose={() => setExpandedBusiness(null)}
+      />
 
-          <article
-            className={`relative w-full max-w-2xl overflow-hidden rounded-2xl border bg-white/10 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.68),_0_14px_26px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:max-w-4xl sm:p-5 lg:p-6 ${getBusinessTone(selectedBusiness.state).cardBorder}`}
-            style={{ animation: "windowIn 380ms cubic-bezier(0.2,0.8,0.22,1)" }}
-          >
-            <div
-              className="pointer-events-none absolute -left-1/4 top-0 h-full w-1/3 bg-gradient-to-r from-transparent via-white/55 to-transparent opacity-60"
-              style={{ animation: "liquidFlow 1200ms ease-out" }}
-            />
-
-            <div className="relative z-10 mb-3 flex items-center justify-between gap-2 sm:mb-4 sm:gap-3">
-              <button
-                type="button"
-                onClick={() => setExpandedBusiness(null)}
-                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.12em] transition-colors backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px] sm:tracking-[0.14em] ${getBusinessTone(selectedBusiness.state).badge}`}
-              >
-                <ArrowLeft size={12} />
-                Back
-              </button>
-              <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] backdrop-blur-md ${getBusinessTone(selectedBusiness.state).badge}`}>
-                {selectedBusiness.period}
-              </span>
-            </div>
-
-            <div className={`relative z-10 mb-4 border-b pb-4 ${getBusinessTone(selectedBusiness.state).line}`}>
-              <h3 className={`text-xl font-semibold uppercase tracking-[0.08em] ${getBusinessTone(selectedBusiness.state).heading}`}>
-                {selectedBusiness.name}
-              </h3>
-              <p className={`mt-2 text-sm leading-relaxed ${getBusinessTone(selectedBusiness.state).body}`}>{selectedBusiness.detail}</p>
-              <p className={`mt-1 text-sm ${getBusinessTone(selectedBusiness.state).bodyStrong}`}>
-                <span className="font-medium">Outcome:</span> {selectedBusiness.outcome}
-              </p>
-            </div>
-
-            <div className="relative z-10 grid gap-2 grid-cols-1 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className={`rounded-lg border p-3 backdrop-blur-sm ${getBusinessTone(selectedBusiness.state).panel}`}>
-                <div className={`mb-1 text-[10px] uppercase tracking-[0.14em] ${getBusinessTone(selectedBusiness.state).meta}`}>Context</div>
-                <p className={`text-sm leading-relaxed ${getBusinessTone(selectedBusiness.state).bodyStrong}`}>{selectedBusiness.context}</p>
-              </div>
-              <div className={`rounded-lg border p-3 backdrop-blur-sm ${getBusinessTone(selectedBusiness.state).panel}`}>
-                <div className={`mb-1 text-[10px] uppercase tracking-[0.14em] ${getBusinessTone(selectedBusiness.state).meta}`}>Failure Signal</div>
-                <p className={`text-sm leading-relaxed ${getBusinessTone(selectedBusiness.state).bodyStrong}`}>{selectedBusiness.failureSignal}</p>
-              </div>
-              <div className={`rounded-lg border p-3 backdrop-blur-sm ${getBusinessTone(selectedBusiness.state).panel}`}>
-                <div className={`mb-1 text-[10px] uppercase tracking-[0.14em] ${getBusinessTone(selectedBusiness.state).meta}`}>Key Learning</div>
-                <p className={`text-sm leading-relaxed ${getBusinessTone(selectedBusiness.state).bodyStrong}`}>{selectedBusiness.learning}</p>
-              </div>
-            </div>
-          </article>
-        </div>
-      )}
-
+      {/* ── SCROLL TO TOP ── */}
       {hasScrolled && (
-        <div className="fixed bottom-8 right-8 z-50 lg:hidden">
-          <GlassButton
-            icon={ArrowUp}
-            onClick={() => scrollTo("home")}
-            className="h-14 w-14 !rounded-full !px-0"
-            aria-label="Scroll to top"
-          />
-        </div>
+        <button
+          onClick={() => scrollTo("home")}
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 50,
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            background: "var(--red)",
+            border: "none",
+            cursor: "pointer",
+            display: "grid",
+            placeItems: "center",
+            boxShadow: "0 4px 20px rgba(192,57,43,0.4)",
+            transition: "all 0.3s ease",
+          }}
+          aria-label="Scroll to top"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--red-bright)";
+            e.currentTarget.style.transform = "translateY(-2px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--red)";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+          className="lg:hidden"
+        >
+          <ArrowUp size={18} color="#fff" />
+        </button>
       )}
     </div>
   );
